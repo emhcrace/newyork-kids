@@ -57,7 +57,7 @@ export default function LandingPage() {
     <div className="min-h-screen flex flex-col items-center bg-white py-8">
       <header className="w-11/12 max-w-5xl text-center mb-10">
         <img
-          src="/logo_on.png"
+          src="https://emhcrace.github.io/newyork-kids/logo_on.png"
           alt="뉴욕꼬맹이 로고"
           className="mx-auto mb-4 h-16 md:h-20"
         />
