@@ -2,12 +2,12 @@ export default function StepSection() {
   const steps = [
     { title: "업로드", description: "변환할 Excel 주문서를 선택합니다." },
     {
-      title: "처리 중...",
-      description: "디자인과 사이즈를 자동 분석하여 집계표를 만듭니다.",
+      title: "처리중",
+      description: "자동 분석하여 집계표를 만듭니다.",
     },
     {
-      title: "결과 확인",
-      description: "집계표를 바로 확인하고 필요하면 다운로드합니다.",
+      title: "결과확인",
+      description: "바로 확인하고 필요하면 다운로드합니다.",
     },
   ];
 

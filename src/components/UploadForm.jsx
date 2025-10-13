@@ -108,16 +108,7 @@ export default function UploadForm({ onData }) {
       {/* 나머지 UI는 동일 (제목, 설명, 버튼, 아이콘, 드래그 안내) */}
 
       {/* 제목 및 설명 */}
-      <div className="flex flex-col items-center mb-6">
-        <svg
-          className="w-12 h-12 text-blue-500 mb-2"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          {/* 파일 모양 아이콘 */}
-          <path d="M3 3a2 2 0 012-2h6l6 6v9a2 2 0 01-2 2H5a2 2 0 01-2-2V3z" />
-          <path d="M15 8H9V2L15 8z" className="opacity-75" />
-        </svg>
+      <div className="flex flex-col items-center mb-6 mt-20">
         <h2 className="text-2xl font-bold text-gray-700">엑셀 주문서 변환기</h2>
         <p className="text-gray-600 mt-2">
           Excel 주문서를 즉시 디자인·사이즈별 집계표로 변환합니다.
