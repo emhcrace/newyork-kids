@@ -3,85 +3,37 @@ import RULES from "./rules.json";
 const FALLBACK_RULES = {
   allowedSizes: [90, 100, 110, 120, 130, 140, 150, 160, 170, 180],
   adultSizeMap: { S: 90, M: 100, L: 110, XL: 120, "2XL": 130 },
-  colors: [
-    "화이트",
-    "블랙",
-    "네이비",
-    "베이지",
-    "퍼플",
-    "옐로우",
-    "스카이블루",
-    "백멜란지",
-    "레드",
-    "블루",
-    "그레이",
-    "아이보리",
-    "차콜",
-    "스틸블루",
-    "다크민트",
-    "인디핑크",
-    "민트",
-    "브라운",
-    "와인",
-    "올리브",
-    "라일락",
-    "핑크",
-    "흰색"
-  ],
-  keywords: [
-    "스웨트셔츠",
-    "맨투맨",
-    "오버핏맨투맨",
-    "기모맨투맨",
-    "후드",
-    "후드티",
-    "기모후드",
-    "트레이닝팬츠",
-    "트레이닝세트",
-    "조거팬츠",
-    "맨투맨z",
-    "반팔",
-    "긴팔티",
-    "실내복",
-    "기모내의",
-    "발열내의",
-    "특기모맨투맨",
-    "패밀리맨투맨",
-    "캐릭터티",
-    "오버핏",
-    "맨투맨티셔츠"
-  ],
-  stopwords: ["상품명", "색상", "사이즈", "옵션", "선택", "onecolor", "Onecolor"]
+  colors: ["white", "black", "navy", "beige", "gray"],
+  keywords: ["sweatshirt", "hoodie", "training", "set", "pants"],
+  stopwords: ["product", "color", "size", "option", "select"],
 };
 
-const dedupe = (arr = [], fallback = []) => {
-  const merged = [...(Array.isArray(arr) ? arr : []), ...fallback];
-  return Array.from(new Set(merged.filter(Boolean).map((v) => String(v).trim())));
+const dedupe = (list = [], fallback = []) => {
+  const merged = [...(Array.isArray(list) ? list : []), ...fallback];
+  return Array.from(new Set(merged.filter(Boolean).map((item) => String(item).trim())));
 };
 
-export const SIZES = (RULES?.allowedSizes?.length
-  ? RULES.allowedSizes
-  : FALLBACK_RULES.allowedSizes
-).slice();
+export const SIZES = (RULES?.allowedSizes?.length ? RULES.allowedSizes : FALLBACK_RULES.allowedSizes).map(
+  (size) => Number(size)
+);
 
 const ADULT_SIZE_MAP = {
   ...FALLBACK_RULES.adultSizeMap,
-  ...(RULES?.adultSizeMap || {})
+  ...(RULES?.adultSizeMap || {}),
 };
 
 const COLOR_WORDS = dedupe(RULES?.colors, FALLBACK_RULES.colors);
-const KEYWORDS = dedupe(RULES?.keywords, FALLBACK_RULES.keywords).sort(
-  (a, b) => b.length - a.length
-);
+const KEYWORDS = dedupe(RULES?.keywords, FALLBACK_RULES.keywords).sort((a, b) => b.length - a.length);
 const STOPWORDS = new Set(dedupe(RULES?.stopwords, FALLBACK_RULES.stopwords));
 const COLOR_SET = new Set(COLOR_WORDS);
 const ADULT_TOKENS = new Set(Object.keys(ADULT_SIZE_MAP));
 
+const HANGUL_REGEX = /[\uAC00-\uD7A3]{2,}/g;
+
 function toNumber(value) {
   if (value === null || value === undefined) return 0;
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  const cleaned = String(value).replace(/[^0-9-]/g, "");
-  const parsed = parseInt(cleaned, 10);
+  const parsed = parseInt(String(value).replace(/[^0-9-]/g, ""), 10);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
@@ -96,37 +48,36 @@ function isColorWord(token = "") {
 }
 
 function normalizeMallName(raw) {
-  const s = cleanup(raw).toLowerCase();
-  if (!s) return "generic";
-  if (s.includes("쿠팡")) return "coupang";
-  if (s.includes("g마켓") || s.includes("gmarket")) return "gmarket";
-  if (s.includes("카페24") || s.includes("cafe24")) return "cafe24";
+  const lowered = cleanup(raw).toLowerCase();
+  if (!lowered) return "generic";
+  if (lowered.includes("\uCFE0\uD321")) return "coupang";
+  if (lowered.includes("g\uB9C8\uCF13") || lowered.includes("gmarket")) return "gmarket";
+  if (lowered.includes("\uCE74\uD39824") || lowered.includes("cafe24")) return "cafe24";
   if (
-    s.includes("스토어팜") ||
-    s.includes("스마트스토어") ||
-    s.includes("스토어") ||
-    s.includes("네이버") ||
-    s.includes("smartstore") ||
-    s.includes("naver")
-  )
+    lowered.includes("\uC2A4\uD1A0\uC5B4\uD31D") ||
+    lowered.includes("\uC2A4\uB9C8\uD2B8\uC2A4\uD1A0\uC5B4") ||
+    lowered.includes("\uC2A4\uD1A0\uC5B4") ||
+    lowered.includes("\uB124\uC774\uBC84") ||
+    lowered.includes("smartstore") ||
+    lowered.includes("naver")
+  ) {
     return "smartstore";
+  }
   return "generic";
 }
 
 function detectMallByPattern(row) {
-  const sale = cleanup(
-    row["판매처상품명"] || row["상품명"] || row["발주명"] || ""
-  ).toLowerCase();
+  const sale = cleanup(row["\uD310\uB9E4\uCC98\uC0C1\uD488\uBA85"] || row["\uC0C1\uD488\uBA85"] || row["\uBC1C\uC8FC\uBA85"] || "").toLowerCase();
   const option = cleanup(
-    row["옵션명"] ||
-      row["옵션"] ||
-      row["옵션정보"] ||
-      row["세부옵션"] ||
-      row["추가옵션"] ||
+    row["\uC635\uC158\uBA85"] ||
+      row["\uC635\uC158"] ||
+      row["\uC635\uC158\uC815\uBCF4"] ||
+      row["\uC138\uBD80\uC635\uC158"] ||
+      row["\uCD94\uAC00\uC635\uC158"] ||
       ""
   ).toLowerCase();
-  const expo = cleanup(row["노출명"] || "").toLowerCase();
-  const combined = `${sale} ${option} ${expo}`;
+  const expo = cleanup(row["\uB178\uCD9C\uBA85"] || "").toLowerCase();
+  const combined = [sale, option, expo].join(" ");
 
   if (/[,]\s*[^,]+[,]\s*\d{2,3}\s*$/.test(expo) || /^\d+[._]/.test(sale)) {
     return "coupang";
@@ -135,30 +86,30 @@ function detectMallByPattern(row) {
   if (
     (sale.includes(":") && sale.includes("/")) ||
     (option.includes(":") && option.includes("/")) ||
-    /원\/[0-9]+개/.test(sale)
+    /\uC6D0\/[0-9]+\uAC1C/.test(sale)
   ) {
     return "gmarket";
   }
 
   if (
-    sale.includes("색상=") ||
-    sale.includes("사이즈=") ||
-    option.includes("색상=") ||
-    option.includes("사이즈=")
+    sale.includes("\uC0C9\uC0C1=") ||
+    sale.includes("\uC0AC\uC774\uC988=") ||
+    option.includes("\uC0C9\uC0C1=") ||
+    option.includes("\uC0AC\uC774\uC988=")
   ) {
     return "cafe24";
   }
 
   if (
-    sale.includes("색상:") && sale.includes("사이즈:") ||
-    option.includes("색상:") && option.includes("사이즈:") ||
-    expo.includes("스마트스토어") ||
-    expo.includes("네이버")
+    (sale.includes("\uC0C9\uC0C1:") && sale.includes("\uC0AC\uC774\uC988:")) ||
+    (option.includes("\uC0C9\uC0C1:") && option.includes("\uC0AC\uC774\uC988:")) ||
+    expo.includes("\uC2A4\uB9C8\uD2B8\uC2A4\uD1A0\uC5B4") ||
+    expo.includes("\uB124\uC774\uBC84")
   ) {
     return "smartstore";
   }
 
-  if (/색상[:=]/.test(combined) && /사이즈[:=]/.test(combined)) {
+  if (/\uC0C9\uC0C1[:=]/.test(combined) && /\uC0AC\uC774\uC988[:=]/.test(combined)) {
     return "smartstore";
   }
 
@@ -166,16 +117,16 @@ function detectMallByPattern(row) {
 }
 
 function normalizeColor(color) {
-  let c = cleanup(color);
-  if (!c) return "";
-  c = c.replace(/\((성인|아동)\)/g, "");
-  c = c.replace(/[\s,/]+/g, "");
-  return c;
+  let result = cleanup(color);
+  if (!result) return "";
+  result = result.replace(/\((\uC131\uC778|\uC544\uB3D9)\)/g, "");
+  result = result.replace(/\s+/g, " ").trim();
+  return result;
 }
 
 function extractHangulName(text) {
-  const tokens = (cleanup(text).match(/[가-힣]{2,}/g) || []).filter(
-    (tok) => tok.length > 1 && !isColorWord(tok) && !STOPWORDS.has(tok)
+  const tokens = (cleanup(text).match(HANGUL_REGEX) || []).filter(
+    (token) => token.length > 1 && !isColorWord(token) && !STOPWORDS.has(token)
   );
   if (!tokens.length) return "";
   const unique = Array.from(new Set(tokens));
@@ -184,125 +135,119 @@ function extractHangulName(text) {
 }
 
 function extractDesignFromText(text) {
-  const s = cleanup(text);
-  if (!s) return "";
-  const codeMatch = s.match(/\b([A-Z]{1,4}\d{2,3})\b/);
+  const source = cleanup(text);
+  if (!source) return "";
+  const codeMatch = source.match(/\b([A-Z]{1,4}\d{2,3})\b/);
   if (!codeMatch) return "";
   const code = codeMatch[1];
-  const keyword = KEYWORDS.find((kw) => s.includes(kw));
-  return keyword ? `${code}${keyword}` : code;
+  const keyword = KEYWORDS.find((item) => source.includes(item));
+  return keyword ? code + keyword : code;
 }
 
 function extractDesignFromSale(text) {
-  let s = cleanup(text);
-  if (!s) return "";
-  s = s.replace(/상품명\s*[:=]\s*/gi, "");
-  s = s.replace(/색상\s*[:=].*?(?:,|\/|\s사이즈|$)/gi, "");
-  const size = extractSize(s);
+  let source = cleanup(text);
+  if (!source) return "";
+  source = source.replace(/\uC0C1\uD488\uBA85\s*[:=]\s*/gi, "");
+  source = source.replace(/\uC0C9\uC0C1\s*[:=].*?(?:,|\/|\s\uC0AC\uC774\uC988|$)/gi, "");
+  const size = extractSize(source);
   if (size) {
-    s = s.replace(new RegExp(`(:|\\b)${size}(?:\\b|$)`), "");
+    source = source.replace(new RegExp('(:|\\\\b)' + size + '(?:\\\\b|$)'), "");
   }
-  const adultToken = Array.from(ADULT_TOKENS).find((tok) =>
-    new RegExp(`(:|\\b)${tok}(?:\\b|$)`, "i").test(s)
+  const adultToken = Array.from(ADULT_TOKENS).find((token) =>
+    new RegExp('(:|\\\\b)' + token + '(?:\\\\b|$)', "i").test(source)
   );
   if (adultToken) {
-    s = s.replace(new RegExp(`(:|\\b)${adultToken}(?:\\b|$)`, "i"), "");
+    source = source.replace(new RegExp('(:|\\\\b)' + adultToken + '(?:\\\\b|$)', "i"), "");
   }
-  if (s.includes(":")) {
-    const [left] = s.split(":");
-    s = left;
+  if (source.includes(":")) {
+    source = source.split(":")[0];
   }
-  if (s.includes("/")) {
-    const [left] = s.split("/");
-    s = left;
+  if (source.includes("/")) {
+    source = source.split("/")[0];
   }
-  if (s.includes(",")) {
-    const [left] = s.split(",");
-    s = left;
+  if (source.includes(",")) {
+    source = source.split(",")[0];
   }
-  s = s.replace(/^(\d+\.|\d+[_-])/, "");
-  return cleanup(s);
+  source = source.replace(/^(\d+\.|\d+[_-])/, "");
+  return cleanup(source);
 }
 
 function normalizeDesign(design) {
-  let s = cleanup(design);
-  if (!s) return "";
-  s = s.replace(/\((성인|아동)\)/g, "");
-  s = s.replace(/\s*(상품명|색상|사이즈)\s*[:=].*$/gi, "");
-  s = s.replace(/[,/]+\s*$/g, "");
-  s = s.replace(/\s*[:]\s*(S|M|L|XL|2XL|\d{2,3})$/i, "");
-  s = s.replace(/^=+/, "");
-  s = s.replace(/^(\d+\.|\d+[_-])/, "");
-  s = s.replace(/\s+/g, " ");
-  s = s.replace(/^([A-Z]{1,4}\d{2,3})\s+/, "$1");
-  return cleanup(s);
+  let refined = cleanup(design);
+  if (!refined) return "";
+  refined = refined.replace(/\((\uC131\uC778|\uC544\uB3D9)\)/g, "");
+  refined = refined.replace(/\s*(\uC0C1\uD488\uBA85|\uC0C9\uC0C1|\uC0AC\uC774\uC988)\s*[:=].*$/gi, "");
+  refined = refined.replace(/[,/]+\s*$/g, "");
+  refined = refined.replace(/\s*[:]\s*(S|M|L|XL|2XL|\d{2,3})$/i, "");
+  refined = refined.replace(/^=+/, "");
+  refined = refined.replace(/^(\d+\.|\d+[_-])/, "");
+  refined = refined.replace(/\s+/g, " ").trim();
+  refined = refined.replace(/^([A-Z]{1,4}\d{2,3})\s+/, "$1");
+  return refined.trim();
 }
 
 function finalizeDesignColor(design, color) {
-  let d = cleanup(design);
-  let c = cleanup(color);
-  if (!c) {
-    const match = d.match(/\(([^)]+)\)$/);
+  let base = normalizeDesign(design);
+  let tone = cleanup(color);
+  if (!tone) {
+    const match = base.match(/\(([^)]+)\)$/);
     if (match) {
-      c = normalizeColor(match[1]);
-      d = d.replace(/\([^)]*\)$/, "").trim();
+      tone = normalizeColor(match[1]);
+      base = base.replace(/\([^)]*\)$/, "").trim();
     }
   }
-  d = normalizeDesign(d);
-  if (!d || isColorWord(d)) {
-    if (!c) c = d;
-    d = "상품명 없음";
+  if (!base) base = "\uC0C1\uD488\uBA85 \uC5C6\uC74C";
+  if (!tone) {
+    return { design: base, color: "" };
   }
-  return { design: d || "상품명 없음", color: c };
+  return { design: base + "(" + tone + ")", color: tone };
 }
 
 function extractSize(text) {
-  const s = cleanup(text);
-  if (!s) return null;
+  const source = cleanup(text);
+  if (!source) return null;
 
-  const label = s.match(/사이즈\s*[:=]\s*(\d{2,3}|S|M|L|XL|2XL)\b/i);
+  const label = source.match(/\uC0AC\uC774\uC988\s*[:=]\s*(\d{2,3}|S|M|L|XL|2XL)\b/i);
   if (label) {
-    const tok = label[1].toUpperCase();
-    return /\d{2,3}/.test(tok) ? toNumber(tok) : ADULT_SIZE_MAP[tok] || null;
+    const token = label[1].toUpperCase();
+    return /\d{2,3}/.test(token) ? toNumber(token) : ADULT_SIZE_MAP[token] || null;
   }
 
-  const adultTagged = s.match(/:\s*(?:\(성인\)|\(아동\))?\s*(S|M|L|XL|2XL)\b/i);
-  if (adultTagged) {
-    const tok = adultTagged[1].toUpperCase();
-    return ADULT_SIZE_MAP[tok] || null;
+  const taggedAdult = source.match(/:\s*(?:\(\uC131\uC778\)|\(\uC544\uB3D9\))?\s*(S|M|L|XL|2XL)\b/i);
+  if (taggedAdult) {
+    const mapped = ADULT_SIZE_MAP[taggedAdult[1].toUpperCase()];
+    if (mapped) return mapped;
   }
 
-  const colonDigits = s.match(/:\s*(\d{2,3})(?!\d)/);
+  const colonDigits = source.match(/:\s*(\d{2,3})(?!\d)/);
   if (colonDigits) {
     const size = toNumber(colonDigits[1]);
     if (SIZES.includes(size)) return size;
   }
 
-  const taggedDigits = s.match(/\((성인|아동)\)\s*(\d{2,3})/);
+  const taggedDigits = source.match(/\((\uC131\uC778|\uC544\uB3D9)\)\s*(\d{2,3})/);
   if (taggedDigits) {
     const size = toNumber(taggedDigits[2]);
     if (SIZES.includes(size)) return size;
   }
 
-  const trailingDigits = s.match(/(\d{2,3})\s*(?:호|cm)?\s*(?:개|벌|$)/i);
-  if (trailingDigits) {
-    const size = toNumber(trailingDigits[1]);
+  const trailing = source.match(/(\d{2,3})\s*(?:\uD638|cm)?\s*(?:\uAC1C|\uBC8C|$)/i);
+  if (trailing) {
+    const size = toNumber(trailing[1]);
     if (SIZES.includes(size)) return size;
   }
 
-  const tokens = [...s.matchAll(/(S|M|L|XL|2XL)\b/gi)];
-  if (tokens.length) {
-    const tok = tokens[tokens.length - 1][1].toUpperCase();
-    const mapped = ADULT_SIZE_MAP[tok];
+  const adultTokens = [...source.matchAll(/(S|M|L|XL|2XL)\b/gi)];
+  if (adultTokens.length) {
+    const mapped = ADULT_SIZE_MAP[adultTokens[adultTokens.length - 1][1].toUpperCase()];
     if (mapped) return mapped;
   }
 
-  const digitTokens = [...s.matchAll(/(\d{2,3})/g)];
-  for (let i = digitTokens.length - 1; i >= 0; i -= 1) {
-    const match = digitTokens[i];
-    const idx = match.index || 0;
-    const prev = s[idx - 1] || " ";
-    if (/^[A-Za-z]$/.test(prev)) continue;
+  const digitTokens = [...source.matchAll(/(\d{2,3})/g)];
+  for (let index = digitTokens.length - 1; index >= 0; index -= 1) {
+    const match = digitTokens[index];
+    const previous = source[(match.index || 0) - 1] || " ";
+    if (/^[A-Za-z]$/.test(previous)) continue;
     const size = toNumber(match[1]);
     if (SIZES.includes(size)) return size;
   }
@@ -311,44 +256,37 @@ function extractSize(text) {
 }
 
 function findColorWord(text) {
-  const s = cleanup(text);
-  if (!s) return "";
-  for (const color of COLOR_WORDS) {
-    if (!color) continue;
-    if (s.includes(color)) return color;
-  }
-  return "";
+  const source = cleanup(text);
+  if (!source) return "";
+  return COLOR_WORDS.find((color) => color && source.includes(color)) || "";
 }
 
 function extractColor(text) {
-  const s = cleanup(text);
-  if (!s) return "";
+  const source = cleanup(text);
+  if (!source) return "";
 
-  const label = s.match(/색상\s*[:=]\s*([^,/\s)]+)/);
+  const label = source.match(/\uC0C9\uC0C1\s*[:=]\s*([^,/\s)]+)/);
   if (label) return normalizeColor(label[1]);
 
-  const colorSize = s.match(
-    /([가-힣A-Za-z]+)\s*:\s*(?:\(성인\)|\(아동\))?\s*(S|M|L|XL|2XL|\d{2,3})\b/
-  );
-  if (colorSize) {
-    const candidate = normalizeColor(colorSize[1]);
+  const colon = source.match(/([\uAC00-\uD7A3A-Za-z]+)\s*:\s*(?:\(\uC131\uC778\)|\(\uC544\uB3D9\))?\s*(S|M|L|XL|2XL|\d{2,3})\b/);
+  if (colon) {
+    const candidate = normalizeColor(colon[1]);
     if (candidate && !ADULT_TOKENS.has(candidate.toUpperCase())) return candidate;
   }
 
-  const slashColor = s.match(/\/\s*([가-힣A-Za-z]+)\s*(?:\(.*?\))?\s*(S|M|L|XL|2XL|\d{2,3})?/);
-  if (slashColor) {
-    const candidate = normalizeColor(slashColor[1]);
+  const slash = source.match(/\/\s*([\uAC00-\uD7A3A-Za-z]+)\s*(?:\(.*?\))?/);
+  if (slash) {
+    const candidate = normalizeColor(slash[1]);
     if (candidate) return candidate;
   }
 
-  const parenColor = s.match(/\(([^)]+)\)/);
-  if (parenColor) {
-    const candidate = normalizeColor(parenColor[1]);
+  const paren = source.match(/\(([^)]+)\)/);
+  if (paren) {
+    const candidate = normalizeColor(paren[1]);
     if (candidate && !ADULT_TOKENS.has(candidate.toUpperCase())) return candidate;
   }
 
-  const word = findColorWord(s);
-  return normalizeColor(word);
+  return normalizeColor(findColorWord(source));
 }
 
 function resolveSize(fields) {
@@ -367,20 +305,20 @@ function resolveColor(fields) {
   return "";
 }
 
-function resolveDesign({ fields, color }) {
+function resolveDesign(fields, color) {
   const candidates = [];
-  for (const field of fields) {
-    const keywordDesign = extractDesignFromText(field);
-    if (keywordDesign) candidates.push(keywordDesign);
-  }
-  for (const field of fields) {
-    const saleDesign = extractDesignFromSale(field);
-    if (saleDesign) candidates.push(saleDesign);
-  }
-  for (const field of fields) {
+  fields.forEach((field) => {
+    const candidate = extractDesignFromText(field);
+    if (candidate) candidates.push(candidate);
+  });
+  fields.forEach((field) => {
+    const candidate = extractDesignFromSale(field);
+    if (candidate) candidates.push(candidate);
+  });
+  fields.forEach((field) => {
     const hangul = extractHangulName(field);
     if (hangul) candidates.push(hangul);
-  }
+  });
   return (
     candidates.find(
       (item) =>
@@ -389,88 +327,88 @@ function resolveDesign({ fields, color }) {
         !isColorWord(item) &&
         cleanup(item) !== cleanup(color) &&
         !STOPWORDS.has(item.replace(/\s+/g, ""))
-    ) || "상품명 없음"
+    ) || "\uC0C1\uD488\uBA85 \uC5C6\uC74C"
   );
 }
 
 function parseRowCoupang(row) {
-  const sale = cleanup(row["판매처상품명"]);
-  const expo = cleanup(row["노출명"]);
+  const sale = cleanup(row["\uD310\uB9E4\uCC98\uC0C1\uD488\uBA85"]);
+  const expo = cleanup(row["\uB178\uCD9C\uBA85"]);
   const size = resolveSize([sale, expo]);
   if (!size) return null;
   const fields = [sale, expo];
   const color = resolveColor(fields);
-  const design = resolveDesign({ fields, color });
+  const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
   return { design: finalized.design, color: finalized.color, size };
 }
 
 function parseRowGmarket(row) {
-  const sale = cleanup(row["판매처상품명"] || row["상품명"]);
-  const option = cleanup(row["옵션명"] || row["옵션"] || "");
-  const expo = cleanup(row["노출명"] || "");
-  const combined = cleanup(`${sale} ${option}`);
+  const sale = cleanup(row["\uD310\uB9E4\uCC98\uC0C1\uD488\uBA85"] || row["\uC0C1\uD488\uBA85"]);
+  const option = cleanup(row["\uC635\uC158\uBA85"] || row["\uC635\uC158"] || "");
+  const expo = cleanup(row["\uB178\uCD9C\uBA85"] || "");
+  const combined = [sale, option].join(" ").trim();
   const size = resolveSize([combined, sale, option, expo]);
   if (!size) return null;
   const fields = [combined, sale, option, expo];
   const color = resolveColor(fields);
-  const design = resolveDesign({ fields, color });
+  const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
   return { design: finalized.design, color: finalized.color, size };
 }
 
 function parseRowCafe24(row) {
-  const sale = cleanup(row["판매처상품명"] || row["상품명"]);
+  const sale = cleanup(row["\uD310\uB9E4\uCC98\uC0C1\uD488\uBA85"] || row["\uC0C1\uD488\uBA85"]);
   const option = cleanup(
-    row["옵션명"] ||
-      row["옵션"] ||
-      row["옵션정보"] ||
-      row["세부옵션"] ||
-      row["추가옵션"] ||
+    row["\uC635\uC158\uBA85"] ||
+      row["\uC635\uC158"] ||
+      row["\uC635\uC158\uC815\uBCF4"] ||
+      row["\uC138\uBD80\uC635\uC158"] ||
+      row["\uCD94\uAC00\uC635\uC158"] ||
       ""
   );
-  const expo = cleanup(row["노출명"] || "");
-  const combined = cleanup(`${sale} ${option}`);
+  const expo = cleanup(row["\uB178\uCD9C\uBA85"] || "");
+  const combined = [sale, option].join(" ").trim();
   const size = resolveSize([combined, sale, option, expo]);
   if (!size) return null;
   const fields = [combined, sale, option, expo];
   const color = resolveColor(fields);
-  const design = resolveDesign({ fields, color });
+  const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
   return { design: finalized.design, color: finalized.color, size };
 }
 
 function parseRowSmartStore(row) {
-  const sale = cleanup(row["판매처상품명"] || row["상품명"]);
+  const sale = cleanup(row["\uD310\uB9E4\uCC98\uC0C1\uD488\uBA85"] || row["\uC0C1\uD488\uBA85"]);
   const option = cleanup(
-    row["옵션명"] ||
-      row["옵션"] ||
-      row["옵션정보"] ||
-      row["상품옵션"] ||
-      row["상세옵션"] ||
+    row["\uC635\uC158\uBA85"] ||
+      row["\uC635\uC158"] ||
+      row["\uC635\uC158\uC815\uBCF4"] ||
+      row["\uC0C1\uD488\uC635\uC158"] ||
+      row["\uC0C1\uC138\uC635\uC158"] ||
       ""
   );
-  const expo = cleanup(row["노출명"] || "");
-  const combined = cleanup(`${sale} ${option}`);
+  const expo = cleanup(row["\uB178\uCD9C\uBA85"] || "");
+  const combined = [sale, option].join(" ").trim();
   const size = resolveSize([combined, sale, option, expo]);
   if (!size) return null;
   const fields = [combined, sale, option, expo];
   const color = resolveColor(fields);
-  const design = resolveDesign({ fields, color });
+  const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
   return { design: finalized.design, color: finalized.color, size };
 }
 
 function parseRowGeneric(row) {
-  const sale = cleanup(row["판매처상품명"] || row["상품명"] || row["발주명"]);
-  const option = cleanup(row["옵션명"] || row["옵션"] || row["옵션정보"] || "");
-  const expo = cleanup(row["노출명"] || "");
-  const combined = cleanup(`${sale} ${option} ${expo}`);
+  const sale = cleanup(row["\uD310\uB9E4\uCC98\uC0C1\uD488\uBA85"] || row["\uC0C1\uD488\uBA85"] || row["\uBC1C\uC8FC\uBA85"]);
+  const option = cleanup(row["\uC635\uC158\uBA85"] || row["\uC635\uC158"] || row["\uC635\uC158\uC815\uBCF4"] || "");
+  const expo = cleanup(row["\uB178\uCD9C\uBA85"] || "");
+  const combined = [sale, option, expo].join(" ").trim();
   const size = resolveSize([combined, sale, option, expo]);
   if (!size) return null;
   const fields = [combined, sale, option, expo];
   const color = resolveColor(fields);
-  const design = resolveDesign({ fields, color });
+  const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
   return { design: finalized.design, color: finalized.color, size };
 }
@@ -479,38 +417,37 @@ export function computeSummary(rows) {
   const result = {};
 
   for (const row of rows) {
-    const qty = toNumber(row["수량"]);
-    if (!qty) continue;
+    const quantity = toNumber(row["\uC218\uB7C9"]);
+    if (!quantity) continue;
 
-    let mallType = normalizeMallName(row["쇼핑몰명"]);
+    let mallType = normalizeMallName(row["\uC1FC\uD551\uBAB0\uBA85"]);
     if (mallType === "generic") {
       const inferred = detectMallByPattern(row);
       if (inferred) mallType = inferred;
     }
-    let parsed = null;
 
+    let parsed = null;
     if (mallType === "coupang") parsed = parseRowCoupang(row);
     else if (mallType === "gmarket") parsed = parseRowGmarket(row);
     else if (mallType === "cafe24") parsed = parseRowCafe24(row);
     else if (mallType === "smartstore") parsed = parseRowSmartStore(row);
     else parsed = parseRowGeneric(row);
-
     if (!parsed) continue;
 
-    const { design, color, size } = parsed;
-    if (!SIZES.includes(size)) continue;
+    const designKey = parsed.design;
+    const sizeKey = parsed.size;
+    if (!SIZES.includes(sizeKey)) continue;
 
-    const key = color ? `${design}(${color})` : design;
-    if (!result[key]) result[key] = {};
-    if (!result[key][size]) result[key][size] = 0;
-    result[key][size] += qty;
+    if (!result[designKey]) result[designKey] = {};
+    if (!result[designKey][sizeKey]) result[designKey][sizeKey] = 0;
+    result[designKey][sizeKey] += quantity;
   }
 
-  return Object.keys(result).map((designKey) => {
+  return Object.keys(result).map((design) => {
     let total = 0;
-    const row = { design: designKey };
+    const row = { design };
     for (const size of SIZES) {
-      const value = result[designKey][size] || 0;
+      const value = result[design][size] || 0;
       row[size] = value;
       total += value;
     }
@@ -518,3 +455,5 @@ export function computeSummary(rows) {
     return row;
   });
 }
+
+

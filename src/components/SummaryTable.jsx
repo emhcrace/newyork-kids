@@ -2,21 +2,20 @@ import { useMemo, useState } from "react";
 
 const SIZES = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
 
-function cleanseDesign(value) {
-  return String(value ?? "")
-    .replace(/,\s*사이즈\s*=\s*/gi, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
+export default function SummaryTable({
+  data,
+  selectedIds = [],
+  onToggleRow,
+  onToggleAll,
+  onUpdateCell,
+  fixedHeight = false,
+}) {
+  const [sortKey, setSortKey] = useState("name");
+  const [sortDir, setSortDir] = useState("asc");
+  const [editing, setEditing] = useState(null);
+  const [inputValue, setInputValue] = useState("");
 
-export default function SummaryTable({ data, fixedHeight = false }) {
-  const sizeTotals = SIZES.map((size) =>
-    data.reduce((acc, row) => acc + (Number(row[size]) || 0), 0)
-  );
-  const grandTotal = data.reduce((acc, row) => acc + (Number(row.total) || 0), 0);
-
-  const [sortKey, setSortKey] = useState("name"); // 'name' | 'total'
-  const [sortDir, setSortDir] = useState("asc"); // 'asc' | 'desc'
+  const isSelected = (id) => selectedIds.includes(id);
 
   const toggleSort = (key) => {
     if (sortKey === key) {
@@ -28,32 +27,72 @@ export default function SummaryTable({ data, fixedHeight = false }) {
   };
 
   const sortedRows = useMemo(() => {
-    if (!sortKey) return data;
     const rows = [...data];
-    const getName = (row) => {
-      const cleaned = cleanseDesign(row.design);
-      const match = cleaned.match(/^(.*?)(?:\(([^)]+)\))?$/);
-      return (match ? match[1] : cleaned).trim();
-    };
+    const compareStrings = (a, b) =>
+      a.localeCompare(b, "ko", { sensitivity: "base" });
     rows.sort((a, b) => {
       if (sortKey === "name") {
-        const nameA = getName(a);
-        const nameB = getName(b);
-        let cmp = nameA.localeCompare(nameB, "ko", { sensitivity: "base" });
-        if (cmp === 0) {
-          const colorA = (cleanseDesign(a.design).match(/\(([^)]+)\)$/) || ["", ""])[1];
-          const colorB = (cleanseDesign(b.design).match(/\(([^)]+)\)$/) || ["", ""])[1];
-          cmp = colorA.localeCompare(colorB, "ko", { sensitivity: "base" });
-          if (cmp === 0) cmp = (Number(b.total) || 0) - (Number(a.total) || 0);
-        }
-        return sortDir === "asc" ? cmp : -cmp;
+        const base = compareStrings(a.baseName || "", b.baseName || "");
+        if (base !== 0) return sortDir === "asc" ? base : -base;
+        const colorCompare = compareStrings(a.color || "", b.color || "");
+        if (colorCompare !== 0) return sortDir === "asc" ? colorCompare : -colorCompare;
+        const totalDiff = (Number(a.total) || 0) - (Number(b.total) || 0);
+        return sortDir === "asc" ? totalDiff : -totalDiff;
       }
-      const totalA = Number(a.total) || 0;
-      const totalB = Number(b.total) || 0;
-      return sortDir === "asc" ? totalA - totalB : totalB - totalA;
+      const totalDiff = (Number(a.total) || 0) - (Number(b.total) || 0);
+      return sortDir === "asc" ? totalDiff : -totalDiff;
     });
     return rows;
   }, [data, sortDir, sortKey]);
+
+  const sizeTotals = useMemo(
+    () =>
+      SIZES.map((size) =>
+        data.reduce((acc, row) => acc + (Number(row[size]) || 0), 0)
+      ),
+    [data]
+  );
+
+  const grandTotal = useMemo(
+    () => data.reduce((acc, row) => acc + (Number(row.total) || 0), 0),
+    [data]
+  );
+
+  const visibleIds = useMemo(() => sortedRows.map((row) => row.id), [sortedRows]);
+  const allSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+
+  const startEditing = (row, field) => {
+    let value = "";
+    if (field === "name") value = row.baseName || "";
+    else if (field === "color") value = row.color || "";
+    else if (SIZES.includes(field)) value = String(row[field] ?? "");
+    else return;
+    setEditing({ id: row.id, field });
+    setInputValue(value);
+  };
+
+  const commitEdit = () => {
+    if (!editing) return;
+    onUpdateCell?.(editing.id, editing.field, inputValue);
+    setEditing(null);
+    setInputValue("");
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setInputValue("");
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitEdit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEdit();
+    }
+  };
 
   return (
     <div
@@ -66,13 +105,21 @@ export default function SummaryTable({ data, fixedHeight = false }) {
       <table className="min-w-full text-base md:text-lg">
         <thead className="sticky top-0 z-10 bg-gray-100">
           <tr>
+            <th className="px-3 py-4 text-center w-12">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={(event) =>
+                  onToggleAll?.(visibleIds, event.target.checked)
+                }
+              />
+            </th>
             <th
               className="px-3 py-4 text-left select-none cursor-pointer"
               onClick={() => toggleSort("name")}
               title="상품명 정렬"
             >
-              상품명
-              {sortKey === "name" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+              상품명{sortKey === "name" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
             </th>
             <th className="px-3 py-4 text-left">색상</th>
             {SIZES.map((size) => (
@@ -85,36 +132,92 @@ export default function SummaryTable({ data, fixedHeight = false }) {
               onClick={() => toggleSort("total")}
               title="합계 정렬"
             >
-              합계
-              {sortKey === "total" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+              합계{sortKey === "total" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
             </th>
           </tr>
         </thead>
         <tbody>
           {sortedRows.map((row) => {
-            const cleaned = cleanseDesign(row.design);
-            const match = cleaned.match(/^(.*?)(?:\(([^)]+)\))?$/);
-            const name = match ? match[1] : cleaned;
-            const color = match && match[2] ? match[2] : "";
+            const isEditing = editing && editing.id === row.id;
+            const editingField = isEditing ? editing.field : null;
             return (
               <tr
-                key={row.design}
+                key={row.id}
                 className="border-b even:bg-gray-50 transition-colors hover:bg-indigo-600 hover:text-white"
               >
-                <td className="px-3 py-3">{name}</td>
-                <td className="px-3 py-3">{color || "-"}</td>
+                <td className="px-3 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={isSelected(row.id)}
+                    onChange={() => onToggleRow?.(row.id)}
+                  />
+                </td>
+                <td
+                  className="px-3 py-3 cursor-pointer"
+                  onDoubleClick={() => startEditing(row, "name")}
+                >
+                  {isEditing && editingField === "name" ? (
+                    <input
+                      autoFocus
+                      value={inputValue}
+                      onChange={(event) => setInputValue(event.target.value)}
+                      onBlur={commitEdit}
+                      onKeyDown={handleKeyDown}
+                      className="w-full px-2 py-1 rounded border text-black"
+                    />
+                  ) : (
+                    row.baseName || "상품명 없음"
+                  )}
+                </td>
+                <td
+                  className="px-3 py-3 cursor-pointer"
+                  onDoubleClick={() => startEditing(row, "color")}
+                >
+                  {isEditing && editingField === "color" ? (
+                    <input
+                      autoFocus
+                      value={inputValue}
+                      onChange={(event) => setInputValue(event.target.value)}
+                      onBlur={commitEdit}
+                      onKeyDown={handleKeyDown}
+                      className="w-full px-2 py-1 rounded border text-black"
+                    />
+                  ) : (
+                    row.color || "-"
+                  )}
+                </td>
                 {SIZES.map((size) => (
-                  <td key={size} className="px-3 py-3 text-center">
-                    {row[size]}
+                  <td
+                    key={size}
+                    className="px-3 py-3 text-center cursor-pointer"
+                    onDoubleClick={() => startEditing(row, size)}
+                  >
+                    {isEditing && editingField === size ? (
+                      <input
+                        autoFocus
+                        type="number"
+                        min="0"
+                        value={inputValue}
+                        onChange={(event) => setInputValue(event.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={handleKeyDown}
+                        className="w-20 px-2 py-1 rounded border text-black text-right"
+                      />
+                    ) : (
+                      row[size]
+                    )}
                   </td>
                 ))}
-                <td className="px-3 py-3 text-center font-semibold">{row.total}</td>
+                <td className="px-3 py-3 text-center font-semibold">
+                  {row.total}
+                </td>
               </tr>
             );
           })}
         </tbody>
         <tfoot>
           <tr className="sticky bottom-0 z-10 bg-gray-100 border-t font-semibold">
+            <td className="px-3 py-3 text-center">-</td>
             <td className="px-3 py-3" colSpan={2}>
               합계
             </td>
@@ -130,4 +233,3 @@ export default function SummaryTable({ data, fixedHeight = false }) {
     </div>
   );
 }
-

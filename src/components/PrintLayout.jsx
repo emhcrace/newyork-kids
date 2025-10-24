@@ -2,9 +2,6 @@ import { useEffect, useMemo, useRef } from "react";
 
 const SIZES = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
 
-const cleanseDesign = (value) =>
-  String(value ?? "").replace(/,\s*사이즈\s*=\s*/gi, " ").replace(/\s{2,}/g, " ").trim();
-
 export default function PrintLayout({ data, onClose }) {
   const hasPrinted = useRef(false);
 
@@ -16,14 +13,13 @@ export default function PrintLayout({ data, onClose }) {
   }, []);
 
   const sortedData = useMemo(() => {
-    const arr = [...data];
-    const getName = (row) => {
-      const cleaned = cleanseDesign(row.design);
-      const match = cleaned.match(/^(.*?)(?:\(([^)]+)\))?$/);
-      return (match ? match[1] : cleaned).trim();
-    };
-    arr.sort((a, b) => getName(a).localeCompare(getName(b), "ko", { sensitivity: "base" }));
-    return arr;
+    const rows = [...data];
+    rows.sort((a, b) =>
+      (a.baseName || a.design || "").localeCompare(b.baseName || b.design || "", "ko", {
+        sensitivity: "base",
+      })
+    );
+    return rows;
   }, [data]);
 
   return (
@@ -51,25 +47,21 @@ export default function PrintLayout({ data, onClose }) {
           </tr>
         </thead>
         <tbody>
-          {sortedData.map((row) => {
-            const match = cleanseDesign(row.design).match(/^(.*?)(?:\(([^)]+)\))?$/);
-            const name = match ? match[1] : row.design;
-            const color = match && match[2] ? match[2] : "";
-            return (
-              <tr key={row.design}>
-                <td className="border px-2 py-1">{name}</td>
-                <td className="border px-2 py-1">{color || "-"}</td>
-                {SIZES.map((size) => (
-                  <td key={size} className="border px-2 py-1 text-center">
-                    {row[size]}
-                  </td>
-                ))}
-                <td className="border px-2 py-1 text-center">{row.total}</td>
-              </tr>
-            );
-          })}
+          {sortedData.map((row) => (
+            <tr key={row.id || row.design}>
+              <td className="border px-2 py-1">{row.baseName || row.design}</td>
+              <td className="border px-2 py-1">{row.color || "-"}</td>
+              {SIZES.map((size) => (
+                <td key={size} className="border px-2 py-1 text-center">
+                  {row[size]}
+                </td>
+              ))}
+              <td className="border px-2 py-1 text-center">{row.total}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
+
