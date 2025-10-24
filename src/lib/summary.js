@@ -27,8 +27,14 @@ function cleanupDesign(name) {
   s = s.replace(/[\s/,-]+$/, '').trim();
   // remove trailing color part after underscore if present
   s = s.split('_')[0].trim();
+  // drop trailing colon details if present (e.g., ':화이트:120')
+  s = s.split(':')[0].trim();
   // compact code + name (e.g., 'W152 맨투맨' -> 'W152맨투맨')
   s = s.replace(/^([A-Z]{1,4}\d{2,3})\s+/, '$1');
+  // remove inner spaces to match final naming style
+  s = s.replace(/\s+/g, '');
+  // normalize common suffix variations
+  s = s.replace(/반팔티$/, '반팔');
   return s;
 }
 

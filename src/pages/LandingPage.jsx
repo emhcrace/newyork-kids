@@ -9,9 +9,9 @@ export default function LandingPage() {
   const [summary, setSummary] = useState([]);
   const [showPrintLayout, setShowPrintLayout] = useState(false);
 
-  // ?붿빟 寃곌낵瑜??묒? ?뚯씪濡???ν븯???⑥닔
+  // 엑셀 다운로드 핸들러
   const handleDownload = () => {
-    // ?ㅻ뜑 諛?rows??湲곗〈 濡쒖쭅怨??숈씪
+    // 요약 데이터를 엑셀 파일로 변환
     const header = [
       "상품명",
       "90",
