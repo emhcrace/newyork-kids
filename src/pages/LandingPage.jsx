@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import UploadForm from "../components/UploadForm";
 import SummaryTable from "../components/SummaryTable";
 import StepSection from "../components/StepSection";
@@ -11,7 +11,9 @@ export default function LandingPage() {
   const [query, setQuery] = useState("");
 
   const filteredSummary = summary.filter((row) =>
-    String(row.design || "").toLowerCase().includes(query.toLowerCase())
+    String(row.design || "")
+      .toLowerCase()
+      .includes(query.toLowerCase())
   );
 
   // 엑셀 다운로드 핸들러
@@ -82,14 +84,6 @@ export default function LandingPage() {
       {summary.length > 0 && !showPrintLayout && (
         <div className="w-11/12 max-w-5xl mt-12 space-y-4">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            {/* Left search */}
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="상품명 검색"
-              className="flex-1 min-w-[220px] px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            />
             {/* Buttons */}
             <div className="flex gap-2">
               <button
@@ -106,16 +100,29 @@ export default function LandingPage() {
                 요약 결과 다운로드
               </button>
             </div>
-            {/* Right search (mirrored) */}
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="상품명 검색"
-              className="flex-1 min-w-[220px] px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            />
+            <div className="flex-1 min-w-[220px] px-3 py-2 " />
+            {/* Right search */}
+            <div className="relative flex-1 min-w-[220px]">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="상품명 검색"
+                className="w-full px-3 pr-8 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  aria-label="검색어 지우기"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
-          <SummaryTable data={filteredSummary} />
+          <SummaryTable data={filteredSummary} fixedHeight={query.length > 0} />
         </div>
       )}
 
