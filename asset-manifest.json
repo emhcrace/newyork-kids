@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/newyork-kids/static/css/main.791d296b.css",
-    "main.js": "/newyork-kids/static/js/main.511e56b1.js",
+    "main.css": "/newyork-kids/static/css/main.1155f62b.css",
+    "main.js": "/newyork-kids/static/js/main.7f876fde.js",
     "index.html": "/newyork-kids/index.html",
-    "main.791d296b.css.map": "/newyork-kids/static/css/main.791d296b.css.map",
-    "main.511e56b1.js.map": "/newyork-kids/static/js/main.511e56b1.js.map"
+    "main.1155f62b.css.map": "/newyork-kids/static/css/main.1155f62b.css.map",
+    "main.7f876fde.js.map": "/newyork-kids/static/js/main.7f876fde.js.map"
   },
   "entrypoints": [
-    "static/css/main.791d296b.css",
-    "static/js/main.511e56b1.js"
+    "static/css/main.1155f62b.css",
+    "static/js/main.7f876fde.js"
   ]
 }
