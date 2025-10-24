@@ -59,16 +59,44 @@ function detectColorFromText(s) {
   return '';
 }
 
+function extractLabeledSize(s) {
+  const m = s.match(/사이즈\s*[:=]\s*(\d{2,3}|S|M|L|XL|2XL)\b/i);
+  if (!m) return null;
+  const token = String(m[1]).toUpperCase();
+  return /\d{2,3}/.test(token) ? toNumber(token) : ADULT_SIZE_MAP[token];
+}
+
+function lastValidSizeFromFreeText(s) {
+  const matches = [...s.matchAll(/(\d{2,3})/g)];
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const m = matches[i];
+    const idx = m.index || 0;
+    const prev = s[idx - 1] || ' ';
+    if (/^[A-Za-z]$/.test(prev)) continue; // exclude code like W152
+    const n = toNumber(m[1]);
+    if (SIZES.includes(n)) return { size: n, index: idx };
+  }
+  return null;
+}
+
 function parseFromSaleName(name) {
   if (!name) return null;
   const s = String(name).trim();
-  // Colon size
+  // Label first
+  const labeled = extractLabeledSize(s);
+  if (labeled) {
+    const before = s.split(/\/?\s*사이즈\s*[:=]/)[0];
+    const parts = before.split('/');
+    const design = cleanupDesign(parts[0]);
+    if (design) return { design, size: labeled, color: detectColorFromText(s), score: 3 };
+  }
+  // Colon-number near end
   const mCol = s.match(/:([0-9]{2,3})(?!.*:)/);
   if (mCol) {
     const size = toNumber(mCol[1]);
     if (SIZES.includes(size)) {
       const left = s.substring(0, mCol.index).trim();
-      return { design: cleanupDesign(left), size, color: detectColorFromText(s), score: 3 };
+      return { design: cleanupDesign(left), size, color: detectColorFromText(s), score: 2 };
     }
   }
   // Adult size token
@@ -83,40 +111,20 @@ function parseFromSaleName(name) {
   // Slash/Hyphen
   let m = s.match(/^\s*(.+?)\s*[\/\-]([^\s/]+)?\s+(\d{2,3})\s*$/);
   if (m) return { design: cleanupDesign(m[1]), size: toNumber(m[3]), color: detectColorFromText(s), score: 2 };
-  // Numbered
+  // Numbered at end
   m = s.match(/^\s*(\d+\.)?\s*(.+?)\s+(\d{2,3})\s*$/);
   if (m) {
     let design = m[2];
     const nameLabel = String(design).match(/상품명\s*[:=]?\s*([^/]+)/);
     if (nameLabel) design = nameLabel[1];
-    return { design: cleanupDesign(design), size: toNumber(m[3]), color: detectColorFromText(s), score: 2 };
+    const size = toNumber(m[3]);
+    if (SIZES.includes(size)) return { design: cleanupDesign(design), size, color: detectColorFromText(s), score: 2 };
   }
-  // Label-based
-  const lbl = s.match(/사이즈\s*[:=]\s*(\d{2,3}|S|M|L|XL|2XL)/i);
-  if (lbl) {
-    const token = String(lbl[1]).toUpperCase();
-    const size = /\d{2,3}/.test(token) ? toNumber(token) : ADULT_SIZE_MAP[token];
-    let design = '';
-    const colorLabel = s.match(/색상\s*[:=]\s*(.*?)\s*(?:[\/|,]|\s{2,}|\s*\/\s*사이즈|,\s*사이즈)/);
-    if (colorLabel) design = cleanupDesign(colorLabel[1]);
-    else {
-      const nameLabel2 = s.match(/상품명\/?\s*[:]?\s*(.*?)\s*(?:\/|,\s*사이즈)/);
-      if (nameLabel2) design = cleanupDesign(nameLabel2[1]);
-      else {
-        const before = s.split(/\/?\s*사이즈\s*[:=]/)[0];
-        const parts = before.split('/');
-        design = cleanupDesign(parts[0]);
-      }
-    }
-    if (design) return { design, size, color: detectColorFromText(s), score: 2 };
-  }
-  // Fallback numeric
-  const matches = [...s.matchAll(/\d{2,3}/g)].map((mm) => ({ n: toNumber(mm[0]), idx: mm.index }));
-  const cands = matches.filter((x) => SIZES.includes(x.n));
-  if (cands.length) {
-    const pick = cands[cands.length - 1];
-    const size = pick.n;
-    const left = s.slice(0, pick.idx).trim();
+  // Fallback numeric (excluding codes)
+  const free = lastValidSizeFromFreeText(s);
+  if (free) {
+    const { size, index } = free;
+    const left = s.slice(0, index).trim();
     const design = cleanupDesign(left.split('/')[0]);
     if (design) return { design, size, color: detectColorFromText(s), score: 1 };
   }
@@ -155,7 +163,7 @@ function findNameFields(row) {
   const findFirst = (keys) => keys.find((k) => Object.prototype.hasOwnProperty.call(row, k) && String(row[k]).trim() !== '');
   const saleKey = findFirst(mq.nameFields) || '판매처상품명';
   const exposureKey = findFirst(mq.exposureFields) || '노출명';
-  return { mall, sale: row[saleKey] || '', exposure: row[exposureKey] || '' };
+  return { mall, sale: row[saleKey] || '', exposure: row[exposureKey] || '', mq };
 }
 
 export function computeSummary(rows) {
@@ -163,14 +171,14 @@ export function computeSummary(rows) {
   for (const row of rows) {
     const qty = findQty(row);
     if (!qty) continue;
-    const { mall, sale, exposure } = findNameFields(row);
+    const { mall, sale, exposure, mq } = findNameFields(row);
     const parsedSale = parseFromSaleName(sale);
     const parsedExpo = parseFromExposure(exposure);
     let parsed = null;
-    const mq = RULES.marketplaces?.find((m)=>m.name===mall);
     if (mq?.preferExposureWithCode && parsedExpo && /[A-Z]{1,4}\d{2,3}/.test(parsedExpo.design)) parsed = parsedExpo;
     else {
-      const cands = [parsedSale, parsedExpo].filter(Boolean).sort((a,b)=> (b.score||0)-(a.score||0));
+      const isColorOnly = parsedSale && COLOR_WORDS.includes(parsedSale.design);
+      const cands = [isColorOnly ? null : parsedSale, parsedExpo].filter(Boolean).sort((a,b)=> (b.score||0)-(a.score||0));
       parsed = cands[0] || null;
     }
     if (!parsed) continue;
