@@ -7,6 +7,7 @@
         <thead className="sticky top-0 z-10 bg-gray-100">
           <tr>
             <th className="px-3 py-4 text-left">상품명</th>
+            <th className="px-3 py-4 text-left">색상</th>
             {sizes.map((sz) => (
               <th key={sz} className="px-3 py-4 text-center">
                 {sz}
@@ -16,22 +17,28 @@
           </tr>
         </thead>
         <tbody>
-          {data.map((row) => (
-            <tr
-              key={row.design}
-              className="border-b even:bg-gray-50 transition-colors hover:bg-indigo-600 hover:text-white"
-            >
-              <td className="px-3 py-3">{row.design}</td>
-              {sizes.map((sz) => (
-                <td key={sz} className="px-3 py-3 text-center">
-                  {row[sz]}
+          {data.map((row) => {
+            const m = String(row.design || '').match(/^(.*?)(?:\(([^)]+)\))?$/);
+            const name = m ? m[1] : row.design;
+            const color = m && m[2] ? m[2] : '';
+            return (
+              <tr
+                key={row.design}
+                className="border-b even:bg-gray-50 transition-colors hover:bg-indigo-600 hover:text-white"
+              >
+                <td className="px-3 py-3">{name}</td>
+                <td className="px-3 py-3">{color || '-'}</td>
+                {sizes.map((sz) => (
+                  <td key={sz} className="px-3 py-3 text-center">
+                    {row[sz]}
+                  </td>
+                ))}
+                <td className="px-3 py-3 text-center font-semibold">
+                  {row.total}
                 </td>
-              ))}
-              <td className="px-3 py-3 text-center font-semibold">
-                {row.total}
-              </td>
-            </tr>
-          ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
