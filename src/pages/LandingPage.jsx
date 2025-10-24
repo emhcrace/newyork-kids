@@ -1,19 +1,19 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import UploadForm from "../components/UploadForm";
 import SummaryTable from "../components/SummaryTable";
 import StepSection from "../components/StepSection";
-import * as XLSX from "xlsx"; // 엑셀 변환을 위해 추가
+import * as XLSX from "xlsx";
 import PrintLayout from "../components/PrintLayout";
 
 export default function LandingPage() {
   const [summary, setSummary] = useState([]);
   const [showPrintLayout, setShowPrintLayout] = useState(false);
 
-  // 요약 결과를 엑셀 파일로 저장하는 함수
+  // ?붿빟 寃곌낵瑜??묒? ?뚯씪濡???ν븯???⑥닔
   const handleDownload = () => {
-    // 헤더 및 rows는 기존 로직과 동일
+    // ?ㅻ뜑 諛?rows??湲곗〈 濡쒖쭅怨??숈씪
     const header = [
-      "디자인명",
+      "상품명",
       "90",
       "100",
       "110",
@@ -62,7 +62,7 @@ export default function LandingPage() {
           className="mx-auto mb-4 h-16 md:h-20"
         />
         <p className="text-gray-600">
-          Excel 주문서를 즉시 디자인·사이즈별 집계표로 변환해보세요.
+          Excel 주문서를 즉시 집계표로 변환해보세요
         </p>
       </header>
 
@@ -71,7 +71,7 @@ export default function LandingPage() {
         <UploadForm onData={setSummary} />
       </div>
 
-      {/* 단계 설명 - 파일 업로드 전에는 이 안내를 표시 */}
+      {/* 업로드 카드 */}
       {summary.length === 0 && <StepSection />}
 
       {summary.length > 0 && !showPrintLayout && (
@@ -84,18 +84,18 @@ export default function LandingPage() {
             >
               인쇄하기
             </button>
-            {/* 다운로드 버튼은 그대로 */}
+            {/* 업로드 카드 */}
             <button
               onClick={handleDownload}
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
             >
-              요약 엑셀 다운로드
+              요약 결과 다운로드
             </button>
           </div>
         </div>
       )}
 
-      {/* 프린트 레이아웃 표시 여부 */}
+      {/* 업로드 카드 */}
       {showPrintLayout && (
         <PrintLayout data={summary} onClose={() => setShowPrintLayout(false)} />
       )}

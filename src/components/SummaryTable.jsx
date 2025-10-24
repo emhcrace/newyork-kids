@@ -1,4 +1,4 @@
-export default function SummaryTable({ data }) {
+﻿export default function SummaryTable({ data }) {
   const sizes = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
 
   return (
@@ -6,7 +6,7 @@ export default function SummaryTable({ data }) {
       <table className="min-w-full text-sm">
         <thead className="bg-gray-100">
           <tr>
-            <th className="px-2 py-3 text-left">디자인명</th>
+            <th className="px-2 py-3 text-left">상품명</th>
             {sizes.map((sz) => (
               <th key={sz} className="px-2 py-3 text-center">
                 {sz}
@@ -34,3 +34,4 @@ export default function SummaryTable({ data }) {
     </div>
   );
 }
+

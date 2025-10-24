@@ -1,4 +1,4 @@
-// PrintLayout.jsx
+﻿// PrintLayout.jsx
 import { useEffect, useRef } from "react";
 
 export default function PrintLayout({ data, onClose }) {
@@ -16,7 +16,7 @@ export default function PrintLayout({ data, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-white p-8 overflow-auto z-50">
-      {/* 닫기 버튼, 프린트 시 숨김 */}
+      {/* ?リ린 踰꾪듉, ?꾨┛?????④? */}
       <button
         onClick={onClose}
         className="print:hidden absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded"
@@ -28,7 +28,7 @@ export default function PrintLayout({ data, onClose }) {
       <table className="min-w-full border border-gray-300">
         <thead>
           <tr className="bg-gray-100">
-            <th className="border px-2 py-1">디자인명</th>
+            <th className="border px-2 py-1">상품명</th>
             {sizes.map((sz) => (
               <th key={sz} className="border px-2 py-1 text-center">
                 {sz}
@@ -54,3 +54,4 @@ export default function PrintLayout({ data, onClose }) {
     </div>
   );
 }
+

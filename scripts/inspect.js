@@ -1,0 +1,11 @@
+﻿const fs = require('fs');
+const path = process.argv[2];
+const XLSX = require('xlsx');
+const wb = XLSX.readFile(path);
+console.log('File:', path);
+console.log('Sheets:', wb.SheetNames);
+const ws = wb.Sheets[wb.SheetNames[0]];
+const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+const headers = Object.keys(rows[0] || {});
+console.log('Headers:', headers);
+console.log('Sample rows:', rows.slice(0, 8));
