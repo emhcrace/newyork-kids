@@ -8,6 +8,11 @@ import PrintLayout from "../components/PrintLayout";
 export default function LandingPage() {
   const [summary, setSummary] = useState([]);
   const [showPrintLayout, setShowPrintLayout] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filteredSummary = summary.filter((row) =>
+    String(row.design || "").toLowerCase().includes(query.toLowerCase())
+  );
 
   // 엑셀 다운로드 핸들러
   const handleDownload = () => {
@@ -26,7 +31,7 @@ export default function LandingPage() {
       "180",
       "합계",
     ];
-    const rows = summary.map((row) => [
+    const rows = filteredSummary.map((row) => [
       row.design,
       row[90],
       row[100],
@@ -76,28 +81,50 @@ export default function LandingPage() {
 
       {summary.length > 0 && !showPrintLayout && (
         <div className="w-11/12 max-w-5xl mt-12 space-y-4">
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setShowPrintLayout(true)}
-              className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
-            >
-              인쇄하기
-            </button>
-            {/* 업로드 카드 */}
-            <button
-              onClick={handleDownload}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-            >
-              요약 결과 다운로드
-            </button>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            {/* Left search */}
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="상품명 검색"
+              className="flex-1 min-w-[220px] px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPrintLayout(true)}
+                className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+              >
+                인쇄하기
+              </button>
+              {/* 업로드 카드 */}
+              <button
+                onClick={handleDownload}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+              >
+                요약 결과 다운로드
+              </button>
+            </div>
+            {/* Right search (mirrored) */}
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="상품명 검색"
+              className="flex-1 min-w-[220px] px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
           </div>
-          <SummaryTable data={summary} />
+          <SummaryTable data={filteredSummary} />
         </div>
       )}
 
       {/* 업로드 카드 */}
       {showPrintLayout && (
-        <PrintLayout data={summary} onClose={() => setShowPrintLayout(false)} />
+        <PrintLayout
+          data={filteredSummary}
+          onClose={() => setShowPrintLayout(false)}
+        />
       )}
 
       <footer className="mt-auto py-8 text-sm text-gray-400">
