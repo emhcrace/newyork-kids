@@ -1,192 +1,224 @@
-// Summary computation (rules-driven, mall-aware)
-// Extracts product name, size, color and aggregates counts by product(color) x size
-
-import RULES from './rules.json';
+﻿// Fresh implementation for Coupang + G마켓 (16일 기준)
+import RULES from "./rules.json";
 
 export const SIZES = RULES.allowedSizes;
-const ADULT_SIZE_MAP = RULES.adultSizeMap;
+const ADULT_SIZE_MAP = { S: 90, M: 100, L: 110, XL: 120, "2XL": 130 };
 const COLOR_WORDS = RULES.colors;
-const STOP_WORDS = RULES.stopwords || [];
 const KEYWORDS = RULES.keywords;
-const CODE_CANON = RULES.codeCanon || {};
 
-function toNumber(val) {
-  if (val === null || val === undefined) return 0;
-  if (typeof val === 'number') return val;
-  const s = String(val).replace(/[\s,]/g, '');
+function toNumber(v) {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === "number") return v;
+  const s = String(v).replace(/[\s,]/g, "");
   const n = parseInt(s, 10);
   return Number.isFinite(n) ? n : 0;
 }
+function cleanup(s) {
+  return String(s || "").trim();
+}
 
-function applyAliases(s) {
-  if (!Array.isArray(RULES.aliases)) return s;
-  let out = s;
-  for (const a of RULES.aliases) {
-    try { out = out.replace(new RegExp(a.pattern, 'g'), a.replace); } catch { /* ignore */ }
+function extractSize(text) {
+  const s = cleanup(text);
+  const mLbl = s.match(/사이즈\s*[:=]\s*(\d{2,3}|S|M|L|XL|2XL)\b/i);
+  if (mLbl) {
+    const tok = mLbl[1].toUpperCase();
+    return /\d{2,3}/.test(tok) ? toNumber(tok) : ADULT_SIZE_MAP[tok];
   }
-  return out;
-}
-
-function cleanupDesign(name) {
-  if (!name) return '';
-  let s = String(name).trim();
-  s = applyAliases(s); // e.g., strip leading '='
-  s = s.replace(/^(\d+\.|\d+[_-])/, '').trim();
-  s = s.split('/')[0].trim();
-  s = s.replace(/[\s/,-]+$/, '').trim();
-  s = s.split('_')[0].trim();
-  s = s.replace(/^([A-Z]{1,4}\d{2,3})\s+/, '$1');
-  s = applyAliases(s);
-  return s;
-}
-
-function canonicalizeDesign(design) {
-  const m = String(design).match(/^([A-Z]{1,4}\d{2,3})/);
-  if (m && CODE_CANON[m[1]]) return `${m[1]}${CODE_CANON[m[1]]}`;
-  return design;
-}
-
-function detectColorFromText(s) {
-  const m1 = s.match(/색상\s*[:=]\s*([^,\/\s)]+)/);
-  if (m1) return applyAliases(m1[1]).trim();
-  const m2 = s.match(/\/([^\s/]+)\s+\d{2,3}\s*$/);
-  if (m2) return applyAliases(m2[1]).trim();
-  const m3 = s.match(/\(([^)]+)\)/);
-  if (m3) {
-    const cand = applyAliases(m3[1]).trim();
-    if (COLOR_WORDS.includes(cand)) return cand;
-  }
-  return '';
-}
-
-function extractLabeledSize(s) {
-  const m = s.match(/사이즈\s*[:=]\s*(\d{2,3}|S|M|L|XL|2XL)\b/i);
-  if (!m) return null;
-  const token = String(m[1]).toUpperCase();
-  return /\d{2,3}/.test(token) ? toNumber(token) : ADULT_SIZE_MAP[token];
-}
-
-function lastValidSizeFromFreeText(s) {
-  const matches = [...s.matchAll(/(\d{2,3})/g)];
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const m = matches[i];
-    const idx = m.index || 0;
-    const prev = s[idx - 1] || ' ';
-    if (/^[A-Za-z]$/.test(prev)) continue; // exclude code like W152
-    const n = toNumber(m[1]);
-    if (SIZES.includes(n)) return { size: n, index: idx };
-  }
-  return null;
-}
-
-function parseFromSaleName(name) {
-  if (!name) return null;
-  const s = String(name).trim();
-  // Label first
-  const labeled = extractLabeledSize(s);
-  if (labeled) {
-    const before = s.split(/\/?\s*사이즈\s*[:=]/)[0];
-    const parts = before.split('/');
-    const design = cleanupDesign(parts[0]);
-    if (design) return { design, size: labeled, color: detectColorFromText(s), score: 3 };
-  }
-  // Colon-number near end
   const mCol = s.match(/:([0-9]{2,3})(?!.*:)/);
   if (mCol) {
-    const size = toNumber(mCol[1]);
-    if (SIZES.includes(size)) {
-      const left = s.substring(0, mCol.index).trim();
-      return { design: cleanupDesign(left), size, color: detectColorFromText(s), score: 2 };
-    }
+    const n = toNumber(mCol[1]);
+    if (SIZES.includes(n)) return n;
   }
-  // Adult size token
-  const mAdult = s.match(/(?:\(성인\))?\s*(S|M|L|XL|2XL)\s*$/i);
-  if (mAdult) {
-    const size = ADULT_SIZE_MAP[mAdult[1].toUpperCase()];
-    if (size) {
-      const left = s.slice(0, mAdult.index).trim();
-      return { design: cleanupDesign(left), size, color: detectColorFromText(s), score: 2 };
-    }
+  const mEnd = s.match(/(\d{2,3})\s*$/);
+  if (mEnd) {
+    const n = toNumber(mEnd[1]);
+    if (SIZES.includes(n)) return n;
   }
-  // Slash/Hyphen
-  let m = s.match(/^\s*(.+?)\s*[\/\-]([^\s/]+)?\s+(\d{2,3})\s*$/);
-  if (m) return { design: cleanupDesign(m[1]), size: toNumber(m[3]), color: detectColorFromText(s), score: 2 };
-  // Numbered at end
-  m = s.match(/^\s*(\d+\.)?\s*(.+?)\s+(\d{2,3})\s*$/);
-  if (m) {
-    let design = m[2];
-    const nameLabel = String(design).match(/상품명\s*[:=]?\s*([^/]+)/);
-    if (nameLabel) design = nameLabel[1];
-    const size = toNumber(m[3]);
-    if (SIZES.includes(size)) return { design: cleanupDesign(design), size, color: detectColorFromText(s), score: 2 };
-  }
-  // Fallback numeric (excluding codes)
-  const free = lastValidSizeFromFreeText(s);
-  if (free) {
-    const { size, index } = free;
-    const left = s.slice(0, index).trim();
-    const design = cleanupDesign(left.split('/')[0]);
-    if (design) return { design, size, color: detectColorFromText(s), score: 1 };
+  const tokens = [...s.matchAll(/(\d{2,3})/g)];
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const mm = tokens[i];
+    const idx = mm.index || 0;
+    const prev = s[idx - 1] || " ";
+    if (/^[A-Za-z]$/.test(prev)) continue; // exclude code like W152
+    const n = toNumber(mm[1]);
+    if (SIZES.includes(n)) return n;
   }
   return null;
 }
 
-function parseFromExposure(exposure) {
-  if (!exposure) return null;
-  const s = String(exposure).trim();
-  let m = s.match(/,\s*(\d+\.[^,]+),\s*(\d{2,3})\s*$/);
-  if (m) return { design: cleanupDesign(m[1]), size: toNumber(m[2]), color: detectColorFromText(s), score: 2 };
-  let sizeM = s.match(/(\d{2,3})\s*$/);
-  if (!sizeM) sizeM = s.match(/(S|M|L|XL|2XL)\s*$/i);
-  const codeM = s.match(/\b([A-Z]{1,4}\d{2,3})\b/);
-  const found = KEYWORDS.filter((k) => s.includes(k)).sort((a,b)=>b.length-a.length)[0];
-  if (sizeM && codeM && found) {
-    const token = String(sizeM[1]).toUpperCase();
-    const size = /\d{2,3}/.test(token) ? toNumber(token) : ADULT_SIZE_MAP[token];
-    const design = cleanupDesign(`${codeM[1]}${found}`);
-    return { design, size, color: detectColorFromText(s), score: 3 };
-  }
-  return null;
+function extractColor(text) {
+  const s = cleanup(text);
+  const m1 = s.match(/색상\s*[:=]\s*([^,\/\s)]+)/);
+  if (m1) return m1[1].trim();
+  const m2 = s.match(/\/([^\s/]+)\s+\d{2,3}\s*$/);
+  if (m2) return m2[1].trim();
+  const m3 = s.match(/\(([^)]+)\)/);
+  if (m3 && COLOR_WORDS.includes(m3[1].trim())) return m3[1].trim();
+  return "";
 }
 
-function findQty(row) {
-  if (Object.prototype.hasOwnProperty.call(row, '수량')) return toNumber(row['수량']);
-  for (const k of Object.keys(row)) {
-    if (k && k.includes('수량')) return toNumber(row[k]);
-  }
-  return 0;
+function extractDesignFromText(s) {
+  const code = (s.match(/\b([A-Z]{1,4}\d{2,3})\b/) || [])[1];
+  if (!code) return "";
+  const found = KEYWORDS.filter((k) => s.includes(k)).sort(
+    (a, b) => b.length - a.length
+  )[0];
+  return found ? code + found : code;
 }
 
-function findNameFields(row) {
-  const mall = String(row['쇼핑몰명'] || '').trim();
-  const mq = RULES.marketplaces?.find((m)=>m.name===mall) || RULES.marketplaces?.[0] || { nameFields: ['판매처상품명','상품명','발주명'], exposureFields: ['노출명'] };
-  const findFirst = (keys) => keys.find((k) => Object.prototype.hasOwnProperty.call(row, k) && String(row[k]).trim() !== '');
-  const saleKey = findFirst(mq.nameFields) || '판매처상품명';
-  const exposureKey = findFirst(mq.exposureFields) || '노출명';
-  return { mall, sale: row[saleKey] || '', exposure: row[exposureKey] || '', mq };
+function extractDesignFromSale(sale) {
+  let s = cleanup(sale);
+  // remove labels and color chunk
+  s = s
+    .replace(/상품명\s*[:=]\s*/g, "")
+    .replace(/색상\s*[:=].*?(?:,|\/|\s사이즈|$)/g, "");
+  const size = extractSize(s);
+  if (size) s = s.replace(new RegExp(`${size}\s*$`), "");
+  s = s.split("/")[0];
+  s = s.replace(/^(\d+\.|\d+[_-])/, "").trim();
+  return s.trim();
+}
+
+function parseRowCoupang(row) {
+  const sale = cleanup(row["판매처상품명"]);
+  const expo = cleanup(row["노출명"]);
+  let size = extractSize(sale) ?? extractSize(expo);
+  if (!size) return null;
+  let color = extractColor(sale) || extractColor(expo);
+
+  // 1) 상품명: 판매처상품명에서 한글만 추출(숫자/기호/영문 제거), 색상 단어는 제외
+  const hangulTokens = (sale.match(/[가-힣]{2,}/g) || []).filter(
+    (t) => !COLOR_WORDS.includes(t)
+  );
+  let nameFromSale = hangulTokens.sort((a, b) => b.length - a.length)[0] || "";
+
+  // 2) 판매처에 유의미한 한글명이 없거나 색상/일반어만 있는 경우, 노출명에서 추출
+  //    우선 콤마 패턴: ", 22.리틀베어, 100" → 가운데 토큰 사용
+  let nameFromExpo = "";
+  const mComma = expo.match(/,\s*([^,]+),\s*(\d{2,3})\s*$/);
+  if (mComma) {
+    const middle = mComma[1];
+    const tok = (middle.match(/[가-힣]{2,}/g) || []).filter(
+      (t) => !COLOR_WORDS.includes(t)
+    );
+    nameFromExpo = tok.sort((a, b) => b.length - a.length)[0] || "";
+  }
+  if (!nameFromExpo) {
+    const exTokens = (expo.match(/[가-힣]{2,}/g) || []).filter(
+      (t) => !COLOR_WORDS.includes(t)
+    );
+    nameFromExpo = exTokens.sort((a, b) => b.length - a.length)[0] || "";
+  }
+
+  let design = nameFromSale || nameFromExpo;
+  if (!design) {
+    // 최후: 코드+키워드 조합 시도
+    design =
+      extractDesignFromText(expo) ||
+      extractDesignFromText(sale) ||
+      extractDesignFromSale(sale);
+  }
+  if (!design) design = "미지정상품";
+  if (!color) color = "";
+  if (!design) return null;
+  design = design.replace(/\([^)]*\)$/, "").trim();
+  return { design, color, size };
+}
+
+function parseRowGmarket(row) {
+  // 흔한 필드: 판매처상품명, 상품명, 옵션명(색상/사이즈 포함 가능)
+  const sale = cleanup(row["판매처상품명"] || row["상품명"]);
+  const option = cleanup(row["옵션명"] || row["옵션"] || "");
+  const combined = `${sale} ${option}`.trim();
+  let size = extractSize(combined) ?? extractSize(sale);
+  if (!size) return null;
+  let color = extractColor(combined) || extractColor(sale);
+  let design = extractDesignFromText(combined) || extractDesignFromSale(sale);
+  if (!design) return null;
+  design = design.replace(/\([^)]*\)$/, "").trim();
+  return { design, color, size };
+}
+
+function parseRowCafe24(row) {
+  // Cafe24 내보내기에서 옵션 필드명이 다양함: 옵션명/옵션/옵션정보/세부옵션/추가옵션 등
+  const sale = cleanup(row["판매처상품명"] || row["상품명"]);
+  const option = cleanup(
+    row["옵션명"] ||
+      row["옵션"] ||
+      row["옵션정보"] ||
+      row["세부옵션"] ||
+      row["추가옵션"] ||
+      ""
+  );
+  const combined = `${sale} ${option}`.trim();
+  let size = extractSize(combined) ?? extractSize(sale);
+  if (!size) return null;
+  let color = extractColor(combined) || extractColor(sale);
+  let design = extractDesignFromText(combined) || extractDesignFromSale(sale);
+  if (!design) return null;
+  design = design.replace(/\([^)]*\)$/, "").trim();
+  return { design, color, size };
+}
+
+function parseRowSmartStore(row) {
+  // 스토어팜(네이버) 추정 필드: 판매처상품명/상품명 + 옵션명/옵션/옵션정보/상품옵션/상세옵션
+  const sale = cleanup(row["판매처상품명"] || row["상품명"]);
+  const option = cleanup(
+    row["옵션명"] ||
+      row["옵션"] ||
+      row["옵션정보"] ||
+      row["상품옵션"] ||
+      row["상세옵션"] ||
+      ""
+  );
+  const combined = `${sale} ${option}`.trim();
+  let size = extractSize(combined) ?? extractSize(sale);
+  if (!size) return null;
+  let color = extractColor(combined) || extractColor(sale);
+  let design = extractDesignFromText(combined) || extractDesignFromSale(sale);
+  if (!design) return null;
+  design = design.replace(/\([^)]*\)$/, "").trim();
+  return { design, color, size };
+}
+
+function parseRowGeneric(row) {
+  // 쇼핑몰명이 없거나 미지정인 경우의 일반 규칙
+  const sale = cleanup(row["판매처상품명"] || row["상품명"] || row["발주명"]);
+  const option = cleanup(row["옵션명"] || row["옵션"] || row["옵션정보"] || "");
+  const extra = cleanup(row["노출명"] || "");
+  const combined = `${sale} ${option} ${extra}`.trim();
+  let size = extractSize(combined) ?? extractSize(sale) ?? extractSize(extra);
+  if (!size) return null;
+  let color =
+    extractColor(combined) || extractColor(sale) || extractColor(extra);
+  let design = extractDesignFromText(combined) || extractDesignFromSale(sale);
+  if (!design) return null;
+  design = design.replace(/\([^)]*\)$/, "").trim();
+  return { design, color, size };
 }
 
 export function computeSummary(rows) {
   const result = {};
-  for (const row of rows) {
-    const qty = findQty(row);
+  for (const r of rows) {
+    const mall = cleanup(r["쇼핑몰명"]);
+    const qty = toNumber(r["수량"]);
     if (!qty) continue;
-    const { mall, sale, exposure, mq } = findNameFields(row);
-    const parsedSale = parseFromSaleName(sale);
-    const parsedExpo = parseFromExposure(exposure);
     let parsed = null;
-    if (mq?.preferExposureWithCode && parsedExpo && /[A-Z]{1,4}\d{2,3}/.test(parsedExpo.design)) parsed = parsedExpo;
-    else {
-      const isColorOnly = parsedSale && COLOR_WORDS.includes(parsedSale.design);
-      const cands = [isColorOnly ? null : parsedSale, parsedExpo].filter(Boolean).sort((a,b)=> (b.score||0)-(a.score||0));
-      parsed = cands[0] || null;
-    }
+    if (mall === "쿠팡") parsed = parseRowCoupang(r);
+    else if (mall === "G마켓" || mall.toLowerCase() === "gmarket")
+      parsed = parseRowGmarket(r);
+    else if (mall === "카페24" || mall.toLowerCase().includes("cafe24"))
+      parsed = parseRowCafe24(r);
+    else if (
+      mall === "스토어팜" ||
+      mall.includes("스토어") ||
+      mall.includes("네이버")
+    )
+      parsed = parseRowSmartStore(r);
+    else parsed = parseRowGeneric(r); // 쇼핑몰명 없음/기타
     if (!parsed) continue;
-    let { design, size, color } = parsed;
-    if (!design) continue;
-    if (/^상품명/.test(design) || COLOR_WORDS.includes(design) || STOP_WORDS.includes(design)) continue;
+    const { design, color, size } = parsed;
     if (!SIZES.includes(size)) continue;
-    design = canonicalizeDesign(design);
     const key = color ? `${design}(${color})` : design;
     if (!result[key]) result[key] = {};
     if (!result[key][size]) result[key][size] = 0;
@@ -196,12 +228,11 @@ export function computeSummary(rows) {
     let total = 0;
     const row = { design };
     for (const sz of SIZES) {
-      const val = result[design][sz] || 0;
-      row[sz] = val;
-      total += val;
+      const v = result[design][sz] || 0;
+      row[sz] = v;
+      total += v;
     }
     row.total = total;
     return row;
   });
 }
-
