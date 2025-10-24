@@ -1,0 +1,27 @@
+﻿// Robust summary computation from various marketplace order formats
+export const SIZES = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
+const ADULT_SIZE_MAP = { S: 90, M: 100, L: 110, XL: 120, '2XL': 130 };
+
+function toNumber(val) {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return val;
+  const s = String(val).replace(/[,\s]/g, '');
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function cleanupDesign(name) {
+  if (!name) return '';
+  let s = String(name).trim();
+  s = s.replace(/^(\d+\.|\d+[_-])/, '').trim(); // remove leading numbering like '29.' or '03_'
+  // drop trailing color after '/'
+  s = s.split('/')[0].trim();
+  s = s.replace(/[\s/,-]+$/, '').trim();
+  // remove trailing color part after underscore if present
+  s = s.split('_')[0].trim();
+  // compact code + name (e.g., 'W152 留⑦닾留? -> 'W152留⑦닾留?)
+  s = s.replace(/^([A-Z]{1,4}\d{2,3})\s+/, '$1');
+  return s;
+}
+
+

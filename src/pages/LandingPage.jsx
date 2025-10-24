@@ -76,7 +76,6 @@ export default function LandingPage() {
 
       {summary.length > 0 && !showPrintLayout && (
         <div className="w-11/12 max-w-5xl mt-12 space-y-4">
-          <SummaryTable data={summary} />
           <div className="flex space-x-2">
             <button
               onClick={() => setShowPrintLayout(true)}
@@ -92,6 +91,7 @@ export default function LandingPage() {
               요약 결과 다운로드
             </button>
           </div>
+          <SummaryTable data={summary} />
         </div>
       )}
 

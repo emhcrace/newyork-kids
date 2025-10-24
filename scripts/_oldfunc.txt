@@ -1,0 +1,58 @@
+﻿function parseFromSaleName(name) {
+  if (!name) return null;
+  const s = String(name).trim();
+  // Adult size letters at end e.g., "... (?깆씤)XL"
+  let mAdult = s.match(/(?:\(?깆씤\))?\s*(S|M|L|XL|2XL)\s*$/i);
+  if (mAdult) {
+    const size = ADULT_SIZE_MAP[mAdult[1].toUpperCase()];
+    if (size) {
+      const left = s.slice(0, mAdult.index).trim();
+      return { design: cleanupDesign(left), size };
+    }
+  }
+  // Prefer slash-format first to drop colors like '/?ㅼ씠鍮?
+  let m = s.match(/^\s*(.+?)\s*[\/\-]([^\s/]+)?\s+(\d{2,3})\s*$/);
+  if (m) {
+    return { design: cleanupDesign(m[1]), size: toNumber(m[3]) };
+  }
+  // Pattern 1: "29.?몃??섎퉬 110"
+  m = s.match(/^\s*(\d+\.)?\s*(.+?)\s+(\d{2,3})\s*$/);
+  if (m) {
+    let design = m[2];
+    // handle embedded label like '?곹뭹紐? 05.怨쇱씪?섎씪 / ?ъ씠利?'
+    const nameLabel = String(design).match(/?곹뭹紐?s*[:]\s*([^/]+)/);
+    if (nameLabel) design = nameLabel[1];
+    return { design: cleanupDesign(design), size: toNumber(m[3]) };
+  }
+  // Pattern 3: ?쇰꺼 湲곕컲 "?됱긽: ... / ?ъ씠利? 110" ?먮뒗 "?곹뭹紐? ... / ?ъ씠利? 110"
+  const sizeFromLabel = s.match(/?ъ씠利?s*[:]\s*(\d{2,3})/);
+  if (sizeFromLabel) {
+    const size = toNumber(sizeFromLabel[1]);
+    let design = '';
+    const colorLabel = s.match(/?됱긽\s*[:]\s*(.*?)\s*(?:[\/|,]|\s{2,}|\s*\/\s*?ъ씠利?/);
+    if (colorLabel) {
+      design = cleanupDesign(colorLabel[1]);
+    } else {
+      // try ?곹뭹紐? ... / ?ъ씠利?
+      const nameLabel = s.match(/?곹뭹紐?s*[:]\s*(.*?)\s*\//);
+      if (nameLabel) {
+        design = cleanupDesign(nameLabel[1]);
+      } else {
+        // part before '/ ?ъ씠利?
+        const before = s.split(/\/?\s*?ъ씠利?s*[:]/)[0];
+        const parts = before.split('/');
+        design = cleanupDesign(parts[0]);
+      }
+    }
+    if (design) return { design, size };
+  }
+  // Pattern 4: fallback last token size
+  const lastNum = s.match(/(\d{2,3})\s*$/);
+  if (lastNum) {
+    const size = toNumber(lastNum[1]);
+    const left = s.replace(/(\d{2,3})\s*$/, '').trim();
+    const design = cleanupDesign(left.split('/')[0]);
+    if (design) return { design, size };
+  }
+  return null;
+}

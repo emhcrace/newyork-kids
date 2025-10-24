@@ -1,0 +1,79 @@
+﻿
+
+function parseFromExposure(exposure) {
+  if (!exposure) return null;
+  const s = String(exposure).trim();
+  // Case 1: '..., 29.?붿옄?몃챸, 110'
+  let m = s.match(/,\s*(\d+\.[^,]+),\s*(\d{2,3})\s*$/);
+  if (m) return { design: cleanupDesign(m[1]), size: toNumber(m[2]) };
+
+  // Case 2: garments: find code (e.g., W152) and keyword (e.g., ?ㅻ쾭?뤿㎤?щ㎤), and size
+  const sizeM = s.match(/(\d{2,3})\s*$/);
+  const codeM = s.match(/\b([A-Z]{1,4}\d{2,3})\b/);
+  const keywords = [
+    '留⑦닾留쮣', '?ㅻ쾭?뤿㎤?щ㎤', '湲곕え留⑦닾留?, '?ㅼ썾?몄뀛痢?, '?꾨뱶', '?꾨뱶??, '罹먯＜?쇳썑??,
+    '湲곕え?ㅻ쾭?륂썑??, '湲곕え?몃젅?대떇?ъ툩', '湲곕え?몃젅?대떇?명듃', '?ㅻ쾭?뤿㎤?щ㎤', '諛섑뙏', '?곗뀛痢?
+  ];
+  const found = keywords.filter((k) => s.includes(k)).sort((a,b)=>b.length-a.length)[0];
+  if (sizeM && codeM && found) {
+    const size = toNumber(sizeM[1]);
+    const design = cleanupDesign(`${codeM[1]}${found}`);
+    return { design, size };
+  }
+  return null;
+}
+
+function findQty(row) {
+  // prefer exact '?섎웾'
+  if (Object.prototype.hasOwnProperty.call(row, '?섎웾')) return toNumber(row['?섎웾']);
+  // otherwise search keys including '?섎웾'
+  for (const k of Object.keys(row)) {
+    if (k && k.includes('?섎웾')) return toNumber(row[k]);
+  }
+  return 0;
+}
+
+function findNameFields(row) {
+  const sale = row['?먮ℓ泥섏긽?덈챸'] || row['?곹뭹紐?] || row['諛쒖＜紐?] || '';
+  const exposure = row['?몄텧紐?] || '';
+  return { sale, exposure };
+}
+
+export function computeSummary(rows) {
+  const result = {};
+  const colorWords = ['?붿씠??,'釉붾옓','?ㅼ씠鍮?,'踰좎씠吏','?쇳뵆','?먮줈??,'?ㅼ뭅?대툝猷?,'諛깅찞?吏','?덈뱶','釉붾（','洹몃젅??,'?꾩씠蹂대━'];
+  for (const row of rows) {
+    const qty = findQty(row);
+    if (!qty) continue;
+    const { sale, exposure } = findNameFields(row);
+    const parsedSale = parseFromSaleName(sale);
+    const parsedExpo = parseFromExposure(exposure);
+    let parsed = null;
+    if (parsedExpo && /[A-Z]{1,4}\d{2,3}/.test(parsedExpo.design)) {
+      // prefer exposure when it yields code+keyword pattern
+      parsed = parsedExpo;
+    } else {
+      parsed = parsedSale || parsedExpo;
+    }
+    if (!parsed) continue; // cannot place without size/design reliably
+    let { design, size } = parsed;
+    if (!design || /^?곹뭹紐?.test(design) || colorWords.includes(design)) continue;
+    if (!SIZES.includes(size)) continue;
+    if (!design) design = '誘몄???;
+    if (!result[design]) result[design] = {};
+    if (!result[design][size]) result[design][size] = 0;
+    result[design][size] += qty;
+  }
+  return Object.keys(result).map((design) => {
+    let total = 0;
+    const row = { design };
+    for (const sz of SIZES) {
+      const val = result[design][sz] || 0;
+      row[sz] = val;
+      total += val;
+    }
+    row.total = total;
+    return row;
+  });
+}
+
