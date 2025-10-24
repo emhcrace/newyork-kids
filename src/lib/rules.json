@@ -33,6 +33,17 @@
         "size": ["사이즈", "SIZE", "size"],
         "color": ["색상", "COLOR", "color"]
       }
+    },
+    {
+      "name": "쿠팡",
+      "quantityFields": ["수량"],
+      "nameFields": ["판매처상품명", "상품명"],
+      "exposureFields": ["노출명"],
+      "preferExposureWithCode": true,
+      "labels": {
+        "size": ["사이즈"],
+        "color": ["색상"]
+      }
     }
   ]
 }

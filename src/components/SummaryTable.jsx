@@ -2,9 +2,9 @@
   const sizes = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[75vh] lg:max-h-[80vh]">
+    <div className="bg-white shadow-md rounded-lg overflow-x-auto overflow-y-auto max-h-[35vh] md:max-h-[37.5vh] lg:max-h-[40vh]">
       <table className="min-w-full text-sm">
-        <thead className="bg-gray-100">
+        <thead className="sticky top-0 z-10 bg-gray-100">
           <tr>
             <th className="px-2 py-3 text-left">상품명</th>
             {sizes.map((sz) => (
