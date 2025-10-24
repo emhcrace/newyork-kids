@@ -29,6 +29,7 @@ export default function PrintLayout({ data, onClose }) {
         <thead>
           <tr className="bg-gray-100">
             <th className="border px-2 py-1">상품명</th>
+            <th className="border px-2 py-1">색상</th>
             {sizes.map((sz) => (
               <th key={sz} className="border px-2 py-1 text-center">
                 {sz}
@@ -38,17 +39,23 @@ export default function PrintLayout({ data, onClose }) {
           </tr>
         </thead>
         <tbody>
-          {data.map((row) => (
-            <tr key={row.design}>
-              <td className="border px-2 py-1">{row.design}</td>
-              {sizes.map((sz) => (
-                <td key={sz} className="border px-2 py-1 text-center">
-                  {row[sz]}
-                </td>
-              ))}
-              <td className="border px-2 py-1 text-center">{row.total}</td>
-            </tr>
-          ))}
+          {data.map((row) => {
+            const match = String(row.design || '').match(/^(.*?)(?:\(([^)]+)\))?$/);
+            const name = match ? match[1] : row.design;
+            const color = match && match[2] ? match[2] : '';
+            return (
+              <tr key={row.design}>
+                <td className="border px-2 py-1">{name}</td>
+                <td className="border px-2 py-1">{color || '-'}</td>
+                {sizes.map((sz) => (
+                  <td key={sz} className="border px-2 py-1 text-center">
+                    {row[sz]}
+                  </td>
+                ))}
+                <td className="border px-2 py-1 text-center">{row.total}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

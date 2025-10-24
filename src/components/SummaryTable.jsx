@@ -1,5 +1,7 @@
 ﻿export default function SummaryTable({ data }) {
   const sizes = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
+  const sizeTotals = sizes.map((sz) => data.reduce((acc, row) => acc + (Number(row[sz]) || 0), 0));
+  const grandTotal = data.reduce((acc, row) => acc + (Number(row.total) || 0), 0);
 
   return (
     <div className="bg-white shadow-md rounded-lg overflow-x-auto overflow-y-auto max-h-[35vh] md:max-h-[37.5vh] lg:max-h-[40vh]">
@@ -40,7 +42,18 @@
             );
           })}
         </tbody>
+        <tfoot>
+          <tr className="sticky bottom-0 z-10 bg-gray-100 border-t font-semibold">
+            <td className="px-3 py-3" colSpan={2}>합계</td>
+            {sizes.map((sz, idx) => (
+              <td key={`total-${sz}`} className="px-3 py-3 text-center">{sizeTotals[idx]}</td>
+            ))}
+            <td className="px-3 py-3 text-center">{grandTotal}</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
 }
+
+
