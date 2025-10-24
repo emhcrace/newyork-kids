@@ -33,11 +33,14 @@ function applyAliases(s) {
 function cleanupDesign(name) {
   if (!name) return '';
   let s = String(name).trim();
+  // Apply aliases early (e.g., strip leading '=') so prefix removal works
+  s = applyAliases(s);
   s = s.replace(/^(\d+\.|\d+[_-])/, '').trim();
   s = s.split('/')[0].trim();
   s = s.replace(/[\s/,-]+$/, '').trim();
   s = s.split('_')[0].trim();
   s = s.replace(/^([A-Z]{1,4}\d{2,3})\s+/, '$1');
+  // Final alias pass
   s = applyAliases(s);
   return s;
 }
@@ -190,4 +193,3 @@ export function computeSummary(rows) {
     return row;
   });
 }
-

@@ -2,7 +2,7 @@
   const sizes = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-x-auto max-h-96 overflow-y-auto">
+    <div className="bg-white shadow-md rounded-lg overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[75vh] lg:max-h-[80vh]">
       <table className="min-w-full text-sm">
         <thead className="bg-gray-100">
           <tr>

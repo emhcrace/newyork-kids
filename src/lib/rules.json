@@ -20,8 +20,8 @@
   },
   "aliases": [
     { "pattern": "반팔티$", "replace": "반팔" },
-    { "pattern": "\\s+", "replace": "" },
-    { "pattern": "^=", "replace": "" }
+    { "pattern": "^=+", "replace": "" },
+    { "pattern": "\\s+", "replace": "" }
   ],
   "marketplaces": [
     {
@@ -36,4 +36,3 @@
     }
   ]
 }
-
