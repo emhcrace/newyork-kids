@@ -1,12 +1,14 @@
-// Summary computation from various marketplace order formats
+// Summary computation (rules-driven)
 // Handles: numbered names, slash color parts, label forms, adult sizes, and normalization
 
-export const SIZES = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
-const ADULT_SIZE_MAP = { S: 90, M: 100, L: 110, XL: 120, '2XL': 130 };
-const COLOR_WORDS = [
-  '화이트', '블랙', '네이비', '베이지', '퍼플', '옐로우', '스카이블루', '백멜란지', '레드', '블루', '그레이', '아이보리',
-  '차콜', '스틸블루', '다크민트', '인디핑크'
-];
+import RULES from './rules.json';
+
+export const SIZES = RULES.allowedSizes;
+const ADULT_SIZE_MAP = RULES.adultSizeMap;
+const COLOR_WORDS = RULES.colors;
+const STOP_WORDS = RULES.stopwords || [];
+const KEYWORDS = RULES.keywords;
+const CODE_CANON = RULES.codeCanon || {};
 
 function toNumber(val) {
   if (val === null || val === undefined) return 0;
@@ -16,37 +18,33 @@ function toNumber(val) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function applyAliases(s) {
+  if (!Array.isArray(RULES.aliases)) return s;
+  let out = s;
+  for (const a of RULES.aliases) {
+    try {
+      const re = new RegExp(a.pattern, 'g');
+      out = out.replace(re, a.replace);
+    } catch (_) {}
+  }
+  return out;
+}
+
 function cleanupDesign(name) {
   if (!name) return '';
   let s = String(name).trim();
-  // remove leading numbering like '29.' or '03_'
   s = s.replace(/^(\d+\.|\d+[_-])/, '').trim();
-  // drop trailing color after '/'
   s = s.split('/')[0].trim();
-  // trim leftover separators
   s = s.replace(/[\s/,-]+$/, '').trim();
-  // remove trailing color part after underscore if present
   s = s.split('_')[0].trim();
-  // drop trailing colon details if present (e.g., ':화이트:120')
-  s = s.split(':')[0].trim();
-  // compact code + name (e.g., 'W152 맨투맨' -> 'W152맨투맨')
   s = s.replace(/^([A-Z]{1,4}\d{2,3})\s+/, '$1');
-  // remove inner spaces to match final naming style
-  s = s.replace(/\s+/g, '');
-  // normalize common suffix variations
-  s = s.replace(/반팔티$/, '반팔');
+  s = applyAliases(s);
   return s;
 }
 
-const CODE_CANON = {
-  W140: '(성인)스웨트셔츠',
-};
-
 function canonicalizeDesign(design) {
   const m = String(design).match(/^([A-Z]{1,4}\d{2,3})/);
-  if (m && CODE_CANON[m[1]]) {
-    return `${m[1]}${CODE_CANON[m[1]]}`;
-  }
+  if (m && CODE_CANON[m[1]]) return `${m[1]}${CODE_CANON[m[1]]}`;
   return design;
 }
 
@@ -54,8 +52,18 @@ function parseFromSaleName(name) {
   if (!name) return null;
   const s = String(name).trim();
 
-  // Adult size letters at end e.g., "... (성인)XL" or trailing XL
-  let mAdult = s.match(/(?:\(성인\))?\s*(S|M|L|XL|2XL)\s*$/i);
+  // Colon-number near end, prefer as size e.g., ":120"
+  const mCol = s.match(/:([0-9]{2,3})(?!.*:)/);
+  if (mCol) {
+    const size = toNumber(mCol[1]);
+    if (SIZES.includes(size)) {
+      const left = s.substring(0, mCol.index).trim();
+      return { design: cleanupDesign(left), size };
+    }
+  }
+
+  // Adult size letters at end e.g., "... (성인)XL"
+  const mAdult = s.match(/(?:\(성인\))?\s*(S|M|L|XL|2XL)\s*$/i);
   if (mAdult) {
     const size = ADULT_SIZE_MAP[mAdult[1].toUpperCase()];
     if (size) {
@@ -66,9 +74,7 @@ function parseFromSaleName(name) {
 
   // Slash/Hyphen pattern: "J015 맨투맨z/네이비 140"
   let m = s.match(/^\s*(.+?)\s*[\/\-]([^\s/]+)?\s+(\d{2,3})\s*$/);
-  if (m) {
-    return { design: cleanupDesign(m[1]), size: toNumber(m[3]) };
-  }
+  if (m) return { design: cleanupDesign(m[1]), size: toNumber(m[3]) };
 
   // Numbered pattern: "29.노란나비 110"
   m = s.match(/^\s*(\d+\.)?\s*(.+?)\s+(\d{2,3})\s*$/);
@@ -90,9 +96,8 @@ function parseFromSaleName(name) {
       design = cleanupDesign(colorLabel[1]);
     } else {
       const nameLabel2 = s.match(/상품명\/?\s*[:]?\s*(.*?)\s*(?:\/|,\s*사이즈)/);
-      if (nameLabel2) {
-        design = cleanupDesign(nameLabel2[1]);
-      } else {
+      if (nameLabel2) design = cleanupDesign(nameLabel2[1]);
+      else {
         const before = s.split(/\/?\s*사이즈\s*[:=]/)[0];
         const parts = before.split('/');
         design = cleanupDesign(parts[0]);
@@ -125,12 +130,7 @@ function parseFromExposure(exposure) {
   let sizeM = s.match(/(\d{2,3})\s*$/);
   if (!sizeM) sizeM = s.match(/(S|M|L|XL|2XL)\s*$/i);
   const codeM = s.match(/\b([A-Z]{1,4}\d{2,3})\b/);
-  const keywords = [
-    '맨투맨z', '오버핏맨투맨', '기모맨투맨', '스웨트셔츠', '후드', '후드티', '캐주얼후드',
-    '기모오버핏후드', '기모트레이닝팬츠', '기모트레이닝세트', '패밀리맨투맨', '트레이닝팬츠',
-    '반팔', '티셔츠', '기모후드', 'NY반팔', '맨투맨', '트레이닝세트'
-  ];
-  const found = keywords.filter((k) => s.includes(k)).sort((a,b)=>b.length-a.length)[0];
+  const found = KEYWORDS.filter((k) => s.includes(k)).sort((a,b)=>b.length-a.length)[0];
   if (sizeM && codeM && found) {
     const token = String(sizeM[1]).toUpperCase();
     const size = /\d{2,3}/.test(token) ? toNumber(token) : ADULT_SIZE_MAP[token];
@@ -143,7 +143,6 @@ function parseFromExposure(exposure) {
 function findQty(row) {
   // prefer exact '수량'
   if (Object.prototype.hasOwnProperty.call(row, '수량')) return toNumber(row['수량']);
-  // otherwise search keys including '수량'
   for (const k of Object.keys(row)) {
     if (k && k.includes('수량')) return toNumber(row[k]);
   }
@@ -151,9 +150,11 @@ function findQty(row) {
 }
 
 function findNameFields(row) {
-  const sale = row['판매처상품명'] || row['상품명'] || row['발주명'] || '';
-  const exposure = row['노출명'] || '';
-  return { sale, exposure };
+  const mq = RULES.marketplaces?.[0] || { quantityFields: ['수량'], nameFields: ['판매처상품명', '상품명', '발주명'], exposureFields: ['노출명'] };
+  const findFirst = (keys) => keys.find((k) => Object.prototype.hasOwnProperty.call(row, k) && String(row[k]).trim() !== '');
+  const saleKey = findFirst(mq.nameFields) || '판매처상품명';
+  const exposureKey = findFirst(mq.exposureFields) || '노출명';
+  return { sale: row[saleKey] || '', exposure: row[exposureKey] || '' };
 }
 
 export function computeSummary(rows) {
@@ -165,15 +166,12 @@ export function computeSummary(rows) {
     const parsedSale = parseFromSaleName(sale);
     const parsedExpo = parseFromExposure(exposure);
     let parsed = null;
-    if (parsedExpo && /[A-Z]{1,4}\d{2,3}/.test(parsedExpo.design)) {
-      // prefer exposure when it yields code+keyword pattern
-      parsed = parsedExpo;
-    } else {
-      parsed = parsedSale || parsedExpo;
-    }
+    if (parsedExpo && /[A-Z]{1,4}\d{2,3}/.test(parsedExpo.design)) parsed = parsedExpo;
+    else parsed = parsedSale || parsedExpo;
     if (!parsed) continue;
     let { design, size } = parsed;
-    if (!design || /^상품명/.test(design) || COLOR_WORDS.includes(design)) continue;
+    if (!design) continue;
+    if (/^상품명/.test(design) || COLOR_WORDS.includes(design) || STOP_WORDS.includes(design)) continue;
     if (!SIZES.includes(size)) continue;
     design = canonicalizeDesign(design);
     if (!result[design]) result[design] = {};
