@@ -14,56 +14,6 @@ const generateId = (() => {
   };
 })();
 
-const parseDesign = (design) => {
-  const match = String(design || "").match(/^(.*?)(?:\(([^)]+)\))?$/);
-  return {
-    name: match ? match[1].trim() : String(design || "").trim(),
-    color: match && match[2] ? match[2].trim() : "",
-  };
-};
-
-const withHelpers = (row) => {
-  const { name, color } = parseDesign(row.design);
-  const { baseName, sizeFromName } = extractBaseName(name, row);
-  const normalized = {
-    ...row,
-    id: generateId(),
-    baseName,
-    color,
-    sizeFromName,
-  };
-  return recalcRow(normalized);
-};
-
-const recalcRow = (row) => {
-  const total = SIZES.reduce((acc, size) => acc + (Number(row[size]) || 0), 0);
-  const baseName = String(row.baseName || "").trim() || "상품명 없음";
-  const displayColor = String(row.color || "").trim();
-  const design = displayColor ? `${baseName}(${displayColor})` : baseName;
-  return { ...row, baseName, color: displayColor, total, design };
-};
-
-const mergeRows = (rows) => {
-  if (!rows.length) return null;
-  const baseName = rows[0].baseName;
-  const colorList = Array.from(
-    new Set(
-      rows
-        .map((row) => String(row.color || "").trim())
-        .filter((value) => value.length > 0)
-    )
-  );
-  const merged = {
-    id: generateId(),
-    baseName,
-    color: colorList.join(", "),
-  };
-  SIZES.forEach((size) => {
-    merged[size] = rows.reduce((sum, row) => sum + (Number(row[size]) || 0), 0);
-  });
-  return recalcRow(merged);
-};
-
 const extractBaseName = (name, row) => {
   const trimmed = String(name || "").trim();
   const match = trimmed.match(/^(.*?)(?:\s|-)?(\d{2,3})$/);
@@ -82,15 +32,57 @@ const extractBaseName = (name, row) => {
   return { baseName: trimmed, sizeFromName: null };
 };
 
+const withHelpers = (row) => {
+  const rawName = String(row.design || "").trim();
+  const { baseName, sizeFromName } = extractBaseName(rawName, row);
+  const normalized = {
+    ...row,
+    id: generateId(),
+    baseName,
+    color: String(row.color || "").trim(),
+    printCode: String(row.printCode || "").trim(),
+    sizeFromName,
+  };
+  return recalcRow(normalized);
+};
+
+const recalcRow = (row) => {
+  const total = SIZES.reduce((acc, size) => acc + (Number(row[size]) || 0), 0);
+  const rawPrintCode = String(row.printCode || "").trim();
+  let baseName = String(row.baseName || "").trim();
+  if (rawPrintCode) {
+    const pattern = new RegExp(`^${rawPrintCode}(?:[\\s\\-_/]+)?`, "i");
+    const stripped = baseName.replace(pattern, "").trim();
+    if (stripped) baseName = stripped;
+  }
+  if (!baseName) baseName = "상품명 없음";
+
+  const displayColor = String(row.color || "").trim();
+  const displayName = rawPrintCode ? `${baseName} (${rawPrintCode})` : baseName;
+  const hasPrintCode = Boolean(rawPrintCode);
+
+  return {
+    ...row,
+    baseName,
+    color: displayColor,
+    displayName,
+    hasPrintCode,
+    printCode: rawPrintCode,
+    total,
+    design: displayName,
+  };
+};
+
 const aggregateRowsByName = (rows) => {
   const map = new Map();
   rows.forEach((row) => {
-    const key = `${row.baseName}||${row.color || ""}`;
+    const key = `${row.baseName}||${row.color || ""}||${row.printCode || ""}`;
     if (!map.has(key)) {
       const base = {
         id: generateId(),
         baseName: row.baseName,
         color: row.color,
+        printCode: row.printCode,
       };
       SIZES.forEach((size) => {
         base[size] = 0;
@@ -105,11 +97,35 @@ const aggregateRowsByName = (rows) => {
   return Array.from(map.values()).map(recalcRow);
 };
 
+const mergeRows = (rows) => {
+  if (!rows.length) return null;
+  const baseName = rows[0].baseName;
+  const printCode = rows[0].printCode || "";
+  const colorList = Array.from(
+    new Set(
+      rows
+        .map((row) => String(row.color || "").trim())
+        .filter((value) => value.length > 0)
+    )
+  );
+  const merged = {
+    id: generateId(),
+    baseName,
+    color: colorList.join(", "),
+    printCode,
+  };
+  SIZES.forEach((size) => {
+    merged[size] = rows.reduce((sum, row) => sum + (Number(row[size]) || 0), 0);
+  });
+  return recalcRow(merged);
+};
+
 export default function LandingPage() {
   const [summary, setSummary] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showPrintLayout, setShowPrintLayout] = useState(false);
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState("all");
 
   const handleData = (rows) => {
     const prepared = rows.map(withHelpers);
@@ -126,11 +142,8 @@ export default function LandingPage() {
   const handleToggleAll = (ids, checked) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (checked) {
-        ids.forEach((id) => next.add(id));
-      } else {
-        ids.forEach((id) => next.delete(id));
-      }
+      if (checked) ids.forEach((id) => next.add(id));
+      else ids.forEach((id) => next.delete(id));
       return Array.from(next);
     });
   };
@@ -141,9 +154,18 @@ export default function LandingPage() {
       return;
     }
     const rowsToMerge = summary.filter((row) => selectedIds.includes(row.id));
-    const uniqueNames = Array.from(new Set(rowsToMerge.map((row) => row.baseName)));
+    const uniqueNames = Array.from(
+      new Set(rowsToMerge.map((row) => row.baseName))
+    );
     if (uniqueNames.length > 1) {
       window.alert("상품명이 다른 항목은 병합할 수 없습니다.");
+      return;
+    }
+    const uniqueCodes = Array.from(
+      new Set(rowsToMerge.map((row) => row.printCode || ""))
+    );
+    if (uniqueCodes.length > 1) {
+      window.alert("상품코드가 다른 항목은 병합할 수 없습니다.");
       return;
     }
     const mergedRow = mergeRows(rowsToMerge);
@@ -161,7 +183,9 @@ export default function LandingPage() {
         if (row.id !== id) return row;
         const updated = { ...row };
         if (field === "name") {
-          updated.baseName = value.trim() || "상품명 없음";
+          const extracted = extractBaseName(value, row);
+          updated.baseName = extracted.baseName;
+          updated.sizeFromName = extracted.sizeFromName;
         } else if (field === "color") {
           updated.color = value
             .split(",")
@@ -178,7 +202,7 @@ export default function LandingPage() {
     });
   };
 
-  const filteredSummary = useMemo(() => {
+  const queryFiltered = useMemo(() => {
     if (!query.trim()) return summary;
     const lowered = query.toLowerCase();
     return summary.filter((row) =>
@@ -188,6 +212,14 @@ export default function LandingPage() {
         .includes(lowered)
     );
   }, [query, summary]);
+
+  const filteredSummary = useMemo(() => {
+    if (viewMode === "print")
+      return queryFiltered.filter((row) => row.hasPrintCode);
+    if (viewMode === "general")
+      return queryFiltered.filter((row) => !row.hasPrintCode);
+    return queryFiltered;
+  }, [queryFiltered, viewMode]);
 
   const handleDownload = () => {
     const header = [
@@ -205,9 +237,11 @@ export default function LandingPage() {
       "합계",
     ];
     const rows = filteredSummary
-      .sort((a, b) => a.baseName.localeCompare(b.baseName, "ko", { sensitivity: "base" }))
+      .sort((a, b) =>
+        a.baseName.localeCompare(b.baseName, "ko", { sensitivity: "base" })
+      )
       .map((row) => [
-        row.design,
+        row.displayName,
         row[90],
         row[100],
         row[110],
@@ -233,6 +267,12 @@ export default function LandingPage() {
     XLSX.writeFile(workbook, filename);
   };
 
+  const tabs = [
+    { id: "all", label: "전체" },
+    { id: "print", label: "나염" },
+    { id: "general", label: "일반" },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-white py-8">
       <header className="w-11/12 max-w-5xl text-center mb-10">
@@ -241,7 +281,7 @@ export default function LandingPage() {
           alt="뉴욕꼬맹이 로고"
           className="mx-auto mb-4 h-16 md:h-20"
         />
-        <p className="text-gray-600">Excel 주문서를 즉시 집계표로 변환해보세요</p>
+        <p className="text-gray-600">Excel 양식으로 변환하는 도구입니다</p>
       </header>
 
       <div className="w-11/12 max-w-5xl">
@@ -258,19 +298,19 @@ export default function LandingPage() {
                 onClick={() => setShowPrintLayout(true)}
                 className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
               >
-                인쇄하기
+                인쇄 미리보기
               </button>
               <button
                 onClick={handleDownload}
                 className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
               >
-                요약 결과 다운로드
+                엑셀 파일 다운로드
               </button>
               <button
                 onClick={handleMergeSelected}
                 className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
               >
-                선택 항목 병합
+                선택한 항목 병합
               </button>
             </div>
             <div className="relative flex-1 min-w-[220px]">
@@ -288,11 +328,29 @@ export default function LandingPage() {
                   aria-label="검색어 지우기"
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  ✕
+                  X
                 </button>
               )}
             </div>
           </div>
+
+          <div className="flex gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setViewMode(tab.id)}
+                className={`px-4 py-2 rounded border ${
+                  viewMode === tab.id
+                    ? "bg-indigo-500 text-white border-indigo-500"
+                    : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <SummaryTable
             data={filteredSummary}
             selectedIds={selectedIds}
@@ -300,6 +358,7 @@ export default function LandingPage() {
             onToggleAll={handleToggleAll}
             onUpdateCell={handleUpdateCell}
             fixedHeight={query.length > 0}
+            viewMode={viewMode}
           />
         </div>
       )}
@@ -307,11 +366,14 @@ export default function LandingPage() {
       {showPrintLayout && (
         <PrintLayout
           data={filteredSummary}
+          viewMode={viewMode}
           onClose={() => setShowPrintLayout(false)}
         />
       )}
 
-      <footer className="mt-auto py-8 text-sm text-gray-400">© 2025 뉴욕꼬맹이</footer>
+      <footer className="mt-auto py-8 text-sm text-gray-400">
+        ⓒ 2025 뉴욕꼬맹이
+      </footer>
     </div>
   );
 }

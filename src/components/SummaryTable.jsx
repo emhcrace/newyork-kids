@@ -9,11 +9,14 @@ export default function SummaryTable({
   onToggleAll,
   onUpdateCell,
   fixedHeight = false,
+  viewMode = "all",
 }) {
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
   const [editing, setEditing] = useState(null);
   const [inputValue, setInputValue] = useState("");
+
+  const showPrintColumn = viewMode === "print";
 
   const isSelected = (id) => selectedIds.includes(id);
 
@@ -28,20 +31,24 @@ export default function SummaryTable({
 
   const sortedRows = useMemo(() => {
     const rows = [...data];
-    const compareStrings = (a, b) =>
-      a.localeCompare(b, "ko", { sensitivity: "base" });
+    const compareStrings = (a, b) => a.localeCompare(b, "ko", { sensitivity: "base" });
+
     rows.sort((a, b) => {
       if (sortKey === "name") {
-        const base = compareStrings(a.baseName || "", b.baseName || "");
-        if (base !== 0) return sortDir === "asc" ? base : -base;
+        const nameCompare = compareStrings(a.baseName || "", b.baseName || "");
+        if (nameCompare !== 0) return sortDir === "asc" ? nameCompare : -nameCompare;
+
         const colorCompare = compareStrings(a.color || "", b.color || "");
         if (colorCompare !== 0) return sortDir === "asc" ? colorCompare : -colorCompare;
+
         const totalDiff = (Number(a.total) || 0) - (Number(b.total) || 0);
         return sortDir === "asc" ? totalDiff : -totalDiff;
       }
+
       const totalDiff = (Number(a.total) || 0) - (Number(b.total) || 0);
       return sortDir === "asc" ? totalDiff : -totalDiff;
     });
+
     return rows;
   }, [data, sortDir, sortKey]);
 
@@ -68,6 +75,7 @@ export default function SummaryTable({
     else if (field === "color") value = row.color || "";
     else if (SIZES.includes(field)) value = String(row[field] ?? "");
     else return;
+
     setEditing({ id: row.id, field });
     setInputValue(value);
   };
@@ -94,6 +102,27 @@ export default function SummaryTable({
     }
   };
 
+  const renderNameCell = (row, isEditingRow, editingField) => {
+    if (isEditingRow && editingField === "name") {
+      return (
+        <input
+          autoFocus
+          value={inputValue}
+          onChange={(event) => setInputValue(event.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={handleKeyDown}
+          className="w-full px-2 py-1 rounded border text-black"
+        />
+      );
+    }
+
+    if (showPrintColumn) {
+      return row.baseName || "상품명 없음";
+    }
+
+    return row.displayName || row.baseName || "상품명 없음";
+  };
+
   return (
     <div
       className={`bg-white shadow-md rounded-lg overflow-x-auto overflow-y-auto ${
@@ -114,12 +143,14 @@ export default function SummaryTable({
                 }
               />
             </th>
+            {showPrintColumn && <th className="px-3 py-4 text-left">나염번호</th>}
             <th
               className="px-3 py-4 text-left select-none cursor-pointer"
               onClick={() => toggleSort("name")}
               title="상품명 정렬"
             >
-              상품명{sortKey === "name" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+              상품명
+              {sortKey === "name" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
             </th>
             <th className="px-3 py-4 text-left">색상</th>
             {SIZES.map((size) => (
@@ -138,8 +169,8 @@ export default function SummaryTable({
         </thead>
         <tbody>
           {sortedRows.map((row) => {
-            const isEditing = editing && editing.id === row.id;
-            const editingField = isEditing ? editing.field : null;
+            const isEditingRow = editing && editing.id === row.id;
+            const editingField = isEditingRow ? editing.field : null;
             return (
               <tr
                 key={row.id}
@@ -152,28 +183,20 @@ export default function SummaryTable({
                     onChange={() => onToggleRow?.(row.id)}
                   />
                 </td>
+                {showPrintColumn && (
+                  <td className="px-3 py-3 text-left">{row.printCode || "-"}</td>
+                )}
                 <td
                   className="px-3 py-3 cursor-pointer"
                   onDoubleClick={() => startEditing(row, "name")}
                 >
-                  {isEditing && editingField === "name" ? (
-                    <input
-                      autoFocus
-                      value={inputValue}
-                      onChange={(event) => setInputValue(event.target.value)}
-                      onBlur={commitEdit}
-                      onKeyDown={handleKeyDown}
-                      className="w-full px-2 py-1 rounded border text-black"
-                    />
-                  ) : (
-                    row.baseName || "상품명 없음"
-                  )}
+                  {renderNameCell(row, isEditingRow, editingField)}
                 </td>
                 <td
                   className="px-3 py-3 cursor-pointer"
                   onDoubleClick={() => startEditing(row, "color")}
                 >
-                  {isEditing && editingField === "color" ? (
+                  {isEditingRow && editingField === "color" ? (
                     <input
                       autoFocus
                       value={inputValue}
@@ -192,7 +215,7 @@ export default function SummaryTable({
                     className="px-3 py-3 text-center cursor-pointer"
                     onDoubleClick={() => startEditing(row, size)}
                   >
-                    {isEditing && editingField === size ? (
+                    {isEditingRow && editingField === size ? (
                       <input
                         autoFocus
                         type="number"
@@ -218,6 +241,7 @@ export default function SummaryTable({
         <tfoot>
           <tr className="sticky bottom-0 z-10 bg-gray-100 border-t font-semibold">
             <td className="px-3 py-3 text-center">-</td>
+            {showPrintColumn && <td className="px-3 py-3 text-center">-</td>}
             <td className="px-3 py-3" colSpan={2}>
               합계
             </td>

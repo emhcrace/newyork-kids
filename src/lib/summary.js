@@ -197,10 +197,18 @@ function finalizeDesignColor(design, color) {
     }
   }
   if (!base) base = "\uC0C1\uD488\uBA85 \uC5C6\uC74C";
-  if (!tone) {
-    return { design: base, color: "" };
+  return { design: base, color: tone }; // tone may be empty string
+}
+
+function extractPrintCode(fields) {
+  const pattern = /\b([A-Z]{1,2}\d{3,4})\b/;
+  for (const field of fields) {
+    const match = cleanup(field).match(pattern);
+    if (match) {
+      return match[1];
+    }
   }
-  return { design: base + "(" + tone + ")", color: tone };
+  return "";
 }
 
 function extractSize(text) {
@@ -340,7 +348,8 @@ function parseRowCoupang(row) {
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
-  return { design: finalized.design, color: finalized.color, size };
+  const printCode = extractPrintCode(fields);
+  return { design: finalized.design, color: finalized.color, printCode, size };
 }
 
 function parseRowGmarket(row) {
@@ -354,7 +363,8 @@ function parseRowGmarket(row) {
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
-  return { design: finalized.design, color: finalized.color, size };
+  const printCode = extractPrintCode(fields);
+  return { design: finalized.design, color: finalized.color, printCode, size };
 }
 
 function parseRowCafe24(row) {
@@ -375,7 +385,8 @@ function parseRowCafe24(row) {
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
-  return { design: finalized.design, color: finalized.color, size };
+  const printCode = extractPrintCode(fields);
+  return { design: finalized.design, color: finalized.color, printCode, size };
 }
 
 function parseRowSmartStore(row) {
@@ -396,7 +407,8 @@ function parseRowSmartStore(row) {
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
-  return { design: finalized.design, color: finalized.color, size };
+  const printCode = extractPrintCode(fields);
+  return { design: finalized.design, color: finalized.color, printCode, size };
 }
 
 function parseRowGeneric(row) {
@@ -410,11 +422,12 @@ function parseRowGeneric(row) {
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
   const finalized = finalizeDesignColor(design, color);
-  return { design: finalized.design, color: finalized.color, size };
+  const printCode = extractPrintCode(fields);
+  return { design: finalized.design, color: finalized.color, printCode, size };
 }
 
 export function computeSummary(rows) {
-  const result = {};
+  const result = new Map();
 
   for (const row of rows) {
     const quantity = toNumber(row["\uC218\uB7C9"]);
@@ -434,20 +447,31 @@ export function computeSummary(rows) {
     else parsed = parseRowGeneric(row);
     if (!parsed) continue;
 
-    const designKey = parsed.design;
     const sizeKey = parsed.size;
     if (!SIZES.includes(sizeKey)) continue;
 
-    if (!result[designKey]) result[designKey] = {};
-    if (!result[designKey][sizeKey]) result[designKey][sizeKey] = 0;
-    result[designKey][sizeKey] += quantity;
+    const key = [parsed.design, parsed.color || "", parsed.printCode || ""].join("||");
+    if (!result.has(key)) {
+      result.set(key, {
+        design: parsed.design,
+        color: parsed.color || "",
+        printCode: parsed.printCode || "",
+        counts: {},
+      });
+    }
+    const entry = result.get(key);
+    entry.counts[sizeKey] = (entry.counts[sizeKey] || 0) + quantity;
   }
 
-  return Object.keys(result).map((design) => {
+  return Array.from(result.values()).map((entry) => {
+    const row = {
+      design: entry.design,
+      color: entry.color,
+      printCode: entry.printCode,
+    };
     let total = 0;
-    const row = { design };
     for (const size of SIZES) {
-      const value = result[design][size] || 0;
+      const value = entry.counts[size] || 0;
       row[size] = value;
       total += value;
     }
