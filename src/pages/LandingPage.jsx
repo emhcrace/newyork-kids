@@ -126,6 +126,8 @@ export default function LandingPage() {
   const [showPrintLayout, setShowPrintLayout] = useState(false);
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState("all");
+  const containerClass =
+    "w-full max-w-6xl px-4 sm:px-6 lg:px-10 xl:px-14 mx-auto";
 
   const handleData = (rows) => {
     const prepared = rows.map(withHelpers);
@@ -230,16 +232,16 @@ export default function LandingPage() {
   }, [filteredSummary, summary]);
 
   const handleDownload = () => {
-    const header = ["상품명", ...activeSizes.map((size) => String(size)), "합계"];
-    const rows = filteredSummary
-      .sort((a, b) =>
-        a.baseName.localeCompare(b.baseName, "ko", { sensitivity: "base" })
-      )
-      .map((row) => [
-        row.displayName,
-        ...activeSizes.map((size) => row[size] ?? 0),
-        row.total,
-      ]);
+    const header = ["번호", "상품명", ...activeSizes.map((size) => String(size)), "합계"];
+    const sorted = [...filteredSummary].sort((a, b) =>
+      a.baseName.localeCompare(b.baseName, "ko", { sensitivity: "base" })
+    );
+    const rows = sorted.map((row, index) => [
+      index + 1,
+      row.displayName,
+      ...activeSizes.map((size) => row[size] ?? 0),
+      row.total,
+    ]);
 
     const worksheet = XLSX.utils.aoa_to_sheet([header, ...rows]);
     const workbook = XLSX.utils.book_new();
@@ -260,8 +262,8 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-white py-8">
-      <header className="w-11/12 max-w-5xl text-center mb-10">
+    <div className="min-h-screen flex flex-col bg-white py-8">
+      <header className={`${containerClass} text-center mb-10`}>
         <img
           src="https://emhcrace.github.io/newyork-kids/logo_on.png"
           alt="뉴욕꼬맹이 로고"
@@ -270,14 +272,18 @@ export default function LandingPage() {
         <p className="text-gray-600">Excel 양식으로 변환하는 도구입니다</p>
       </header>
 
-      <div className="w-11/12 max-w-5xl">
+      <div className={containerClass}>
         <UploadForm onData={handleData} />
       </div>
 
-      {summary.length === 0 && <StepSection />}
+      {summary.length === 0 && (
+        <div className={containerClass}>
+          <StepSection />
+        </div>
+      )}
 
       {summary.length > 0 && !showPrintLayout && (
-        <div className="w-11/12 max-w-5xl mt-12 space-y-4">
+        <div className={`${containerClass} mt-12 space-y-4`}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex gap-2">
               <button
@@ -359,7 +365,7 @@ export default function LandingPage() {
         />
       )}
 
-      <footer className="mt-auto py-8 text-sm text-gray-400">
+      <footer className={`${containerClass} mt-auto py-8 text-sm text-gray-400`}>
         ⓒ 2025 뉴욕꼬맹이
       </footer>
     </div>

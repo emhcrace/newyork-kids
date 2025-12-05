@@ -145,6 +145,7 @@ export default function SummaryTable({
                 }
               />
             </th>
+            <th className="px-3 py-4 text-center w-14">번호</th>
             {showPrintColumn && <th className="px-3 py-4 text-left">나염번호</th>}
             <th
               className="px-3 py-4 text-left select-none cursor-pointer"
@@ -170,7 +171,7 @@ export default function SummaryTable({
           </tr>
         </thead>
         <tbody>
-          {sortedRows.map((row) => {
+          {sortedRows.map((row, index) => {
             const isEditingRow = editing && editing.id === row.id;
             const editingField = isEditingRow ? editing.field : null;
             return (
@@ -185,6 +186,7 @@ export default function SummaryTable({
                     onChange={() => onToggleRow?.(row.id)}
                   />
                 </td>
+                <td className="px-3 py-3 text-center text-gray-500">{index + 1}</td>
                 {showPrintColumn && (
                   <td className="px-3 py-3 text-left">{row.printCode || "-"}</td>
                 )}
@@ -242,6 +244,7 @@ export default function SummaryTable({
         </tbody>
         <tfoot>
           <tr className="sticky bottom-0 z-10 bg-gray-100 border-t font-semibold">
+            <td className="px-3 py-3 text-center">-</td>
             <td className="px-3 py-3 text-center">-</td>
             {showPrintColumn && <td className="px-3 py-3 text-center">-</td>}
             <td className="px-3 py-3" colSpan={2}>
