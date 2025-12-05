@@ -353,10 +353,10 @@ export default function LandingPage() {
                 type="button"
                 onClick={() => setListFullscreen(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded border bg-white text-gray-700 hover:bg-gray-100"
-              >
-                <span aria-hidden="true">⛶</span>
-                <span>전체화면</span>
-              </button>
+                >
+                  <span aria-hidden="true">⛶</span>
+                  <span>전체화면</span>
+                </button>
             </div>
 
             <SummaryTable
