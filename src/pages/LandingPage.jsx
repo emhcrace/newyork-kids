@@ -4,7 +4,7 @@ import UploadForm from "../components/UploadForm";
 import SummaryTable from "../components/SummaryTable";
 import StepSection from "../components/StepSection";
 import PrintLayout from "../components/PrintLayout";
-import { SIZES } from "../lib/summary";
+import { SIZES, NUMERIC_SIZES, ADULT_SIZES } from "../lib/summary";
 
 const generateId = (() => {
   let counter = 0;
@@ -221,37 +221,23 @@ export default function LandingPage() {
     return queryFiltered;
   }, [queryFiltered, viewMode]);
 
+  const activeSizes = useMemo(() => {
+    const rowsToCheck = filteredSummary.length ? filteredSummary : summary;
+    const present = SIZES.filter((size) =>
+      rowsToCheck.some((row) => Number(row[size]) > 0)
+    );
+    return present.length ? present : NUMERIC_SIZES;
+  }, [filteredSummary, summary]);
+
   const handleDownload = () => {
-    const header = [
-      "상품명",
-      "90",
-      "100",
-      "110",
-      "120",
-      "130",
-      "140",
-      "150",
-      "160",
-      "170",
-      "180",
-      "합계",
-    ];
+    const header = ["상품명", ...activeSizes.map((size) => String(size)), "합계"];
     const rows = filteredSummary
       .sort((a, b) =>
         a.baseName.localeCompare(b.baseName, "ko", { sensitivity: "base" })
       )
       .map((row) => [
         row.displayName,
-        row[90],
-        row[100],
-        row[110],
-        row[120],
-        row[130],
-        row[140],
-        row[150],
-        row[160],
-        row[170],
-        row[180],
+        ...activeSizes.map((size) => row[size] ?? 0),
         row.total,
       ]);
 
@@ -359,6 +345,7 @@ export default function LandingPage() {
             onUpdateCell={handleUpdateCell}
             fixedHeight={query.length > 0}
             viewMode={viewMode}
+            sizes={activeSizes}
           />
         </div>
       )}
@@ -367,6 +354,7 @@ export default function LandingPage() {
         <PrintLayout
           data={filteredSummary}
           viewMode={viewMode}
+          sizes={activeSizes}
           onClose={() => setShowPrintLayout(false)}
         />
       )}

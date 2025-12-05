@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-
-const SIZES = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
+import { SIZES as DEFAULT_SIZES } from "../lib/summary";
 
 const formatTimestamp = () => {
   const now = new Date();
@@ -10,9 +9,15 @@ const formatTimestamp = () => {
   return `${date} ${time}`;
 };
 
-export default function PrintLayout({ data, onClose, viewMode = "all" }) {
+export default function PrintLayout({
+  data,
+  onClose,
+  viewMode = "all",
+  sizes = DEFAULT_SIZES,
+}) {
   const hasPrinted = useRef(false);
   const showPrintColumn = viewMode === "print";
+  const sizeList = sizes && sizes.length ? sizes : DEFAULT_SIZES;
 
   useEffect(() => {
     if (!hasPrinted.current) {
@@ -33,10 +38,37 @@ export default function PrintLayout({ data, onClose, viewMode = "all" }) {
     return rows;
   }, [data]);
 
-  const grandTotal = useMemo(
-    () => data.reduce((acc, row) => acc + (Number(row.total) || 0), 0),
-    [data]
-  );
+  const totals = useMemo(() => {
+    let printTotal = 0;
+    let generalTotal = 0;
+    let allTotal = 0;
+    data.forEach((row) => {
+      const value = Number(row.total) || 0;
+      allTotal += value;
+      if (row.hasPrintCode) printTotal += value;
+      else generalTotal += value;
+    });
+    return { allTotal, printTotal, generalTotal };
+  }, [data]);
+
+  const totalLabel =
+    viewMode === "print"
+      ? "나염 총합계"
+      : viewMode === "general"
+      ? "일반 총합계"
+      : "전체 총합계";
+
+  const totalValue =
+    viewMode === "print"
+      ? totals.printTotal
+      : viewMode === "general"
+      ? totals.generalTotal
+      : totals.allTotal;
+
+  const totalDetail =
+    viewMode === "all"
+      ? ` (나염 ${totals.printTotal.toLocaleString()}개 · 일반 ${totals.generalTotal.toLocaleString()}개)`
+      : "";
 
   const timestamp = useMemo(() => formatTimestamp(), []);
 
@@ -51,18 +83,19 @@ export default function PrintLayout({ data, onClose, viewMode = "all" }) {
       </button>
 
       <h1 className="text-2xl font-bold mb-4">
-        {timestamp} 인쇄 · 총합계 {grandTotal.toLocaleString()}개
+        {timestamp} {totalLabel} {totalValue.toLocaleString()}개{totalDetail}
       </h1>
 
       <table className="min-w-full border border-gray-300">
         <thead>
           <tr className="bg-gray-100">
+            <th className="border px-2 py-1 w-12 text-center">번호</th>
             {showPrintColumn && (
               <th className="border px-2 py-1">나염번호</th>
             )}
             <th className="border px-2 py-1">상품명</th>
             <th className="border px-2 py-1">색상</th>
-            {SIZES.map((size) => (
+            {sizeList.map((size) => (
               <th key={size} className="border px-2 py-1 text-center">
                 {size}
               </th>
@@ -71,12 +104,13 @@ export default function PrintLayout({ data, onClose, viewMode = "all" }) {
           </tr>
         </thead>
         <tbody>
-          {sortedData.map((row) => {
+          {sortedData.map((row, index) => {
             const name = showPrintColumn
               ? row.baseName || row.displayName || "상품명 없음"
               : row.displayName || row.baseName || "상품명 없음";
             return (
               <tr key={row.id || row.displayName}>
+                <td className="border px-2 py-1 text-center">{index + 1}</td>
                 {showPrintColumn && (
                   <td className="border px-2 py-1 text-center">
                     {row.printCode || "-"}
@@ -84,7 +118,7 @@ export default function PrintLayout({ data, onClose, viewMode = "all" }) {
                 )}
                 <td className="border px-2 py-1">{name}</td>
                 <td className="border px-2 py-1">{row.color || "-"}</td>
-                {SIZES.map((size) => (
+                {sizeList.map((size) => (
                   <td key={size} className="border px-2 py-1 text-center">
                     {row[size]}
                   </td>

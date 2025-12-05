@@ -13,20 +13,36 @@ const dedupe = (list = [], fallback = []) => {
   return Array.from(new Set(merged.filter(Boolean).map((item) => String(item).trim())));
 };
 
-export const SIZES = (RULES?.allowedSizes?.length ? RULES.allowedSizes : FALLBACK_RULES.allowedSizes).map(
-  (size) => Number(size)
-);
-
 const ADULT_SIZE_MAP = {
   ...FALLBACK_RULES.adultSizeMap,
   ...(RULES?.adultSizeMap || {}),
 };
 
+const RAW_ALLOWED_SIZES = Array.isArray(RULES?.allowedSizes) && RULES.allowedSizes.length
+  ? RULES.allowedSizes
+  : FALLBACK_RULES.allowedSizes;
+
+export const NUMERIC_SIZES = Array.from(
+  new Set(
+    RAW_ALLOWED_SIZES.map((size) => Number(size)).filter((value) => Number.isFinite(value) && value > 0)
+  )
+).sort((a, b) => a - b);
+
+export const ADULT_SIZES = Object.keys(ADULT_SIZE_MAP);
+
+export const UNKNOWN_SIZE_LABEL = "\uae30\ud0c0";
+
+export const SIZES = [...NUMERIC_SIZES, ...ADULT_SIZES, UNKNOWN_SIZE_LABEL];
+
+const NUMERIC_SIZE_SET = new Set(NUMERIC_SIZES);
+const ADULT_SIZE_SET = new Set(ADULT_SIZES);
+const ALLOWED_SIZE_SET = new Set(SIZES);
+
 const COLOR_WORDS = dedupe(RULES?.colors, FALLBACK_RULES.colors);
 const KEYWORDS = dedupe(RULES?.keywords, FALLBACK_RULES.keywords).sort((a, b) => b.length - a.length);
 const STOPWORDS = new Set(dedupe(RULES?.stopwords, FALLBACK_RULES.stopwords));
 const COLOR_SET = new Set(COLOR_WORDS);
-const ADULT_TOKENS = new Set(Object.keys(ADULT_SIZE_MAP));
+const ADULT_TOKENS = new Set(ADULT_SIZES);
 
 const HANGUL_REGEX = /[\uAC00-\uD7A3]{2,}/g;
 
@@ -218,37 +234,41 @@ function extractSize(text) {
   const label = source.match(/\uC0AC\uC774\uC988\s*[:=]\s*(\d{2,3}|S|M|L|XL|2XL)\b/i);
   if (label) {
     const token = label[1].toUpperCase();
-    return /\d{2,3}/.test(token) ? toNumber(token) : ADULT_SIZE_MAP[token] || null;
+    if (/^\d{2,3}$/.test(token)) {
+      const numeric = toNumber(token);
+      return NUMERIC_SIZE_SET.has(numeric) ? numeric : null;
+    }
+    return ADULT_SIZE_SET.has(token) ? token : null;
   }
 
   const taggedAdult = source.match(/:\s*(?:\(\uC131\uC778\)|\(\uC544\uB3D9\))?\s*(S|M|L|XL|2XL)\b/i);
   if (taggedAdult) {
-    const mapped = ADULT_SIZE_MAP[taggedAdult[1].toUpperCase()];
-    if (mapped) return mapped;
+    const token = taggedAdult[1].toUpperCase();
+    if (ADULT_SIZE_SET.has(token)) return token;
   }
 
   const colonDigits = source.match(/:\s*(\d{2,3})(?!\d)/);
   if (colonDigits) {
     const size = toNumber(colonDigits[1]);
-    if (SIZES.includes(size)) return size;
+    if (NUMERIC_SIZE_SET.has(size)) return size;
   }
 
   const taggedDigits = source.match(/\((\uC131\uC778|\uC544\uB3D9)\)\s*(\d{2,3})/);
   if (taggedDigits) {
     const size = toNumber(taggedDigits[2]);
-    if (SIZES.includes(size)) return size;
+    if (NUMERIC_SIZE_SET.has(size)) return size;
   }
 
   const trailing = source.match(/(\d{2,3})\s*(?:\uD638|cm)?\s*(?:\uAC1C|\uBC8C|$)/i);
   if (trailing) {
     const size = toNumber(trailing[1]);
-    if (SIZES.includes(size)) return size;
+    if (NUMERIC_SIZE_SET.has(size)) return size;
   }
 
   const adultTokens = [...source.matchAll(/(S|M|L|XL|2XL)\b/gi)];
   if (adultTokens.length) {
-    const mapped = ADULT_SIZE_MAP[adultTokens[adultTokens.length - 1][1].toUpperCase()];
-    if (mapped) return mapped;
+    const token = adultTokens[adultTokens.length - 1][1].toUpperCase();
+    if (ADULT_SIZE_SET.has(token)) return token;
   }
 
   const digitTokens = [...source.matchAll(/(\d{2,3})/g)];
@@ -257,7 +277,7 @@ function extractSize(text) {
     const previous = source[(match.index || 0) - 1] || " ";
     if (/^[A-Za-z]$/.test(previous)) continue;
     const size = toNumber(match[1]);
-    if (SIZES.includes(size)) return size;
+    if (NUMERIC_SIZE_SET.has(size)) return size;
   }
 
   return null;
@@ -339,11 +359,14 @@ function resolveDesign(fields, color) {
   );
 }
 
+function ensureSize(size) {
+  return size ?? UNKNOWN_SIZE_LABEL;
+}
+
 function parseRowCoupang(row) {
   const sale = cleanup(row["\uD310\uB9E4\uCC98\uC0C1\uD488\uBA85"]);
   const expo = cleanup(row["\uB178\uCD9C\uBA85"]);
-  const size = resolveSize([sale, expo]);
-  if (!size) return null;
+  const size = ensureSize(resolveSize([sale, expo]));
   const fields = [sale, expo];
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
@@ -357,8 +380,7 @@ function parseRowGmarket(row) {
   const option = cleanup(row["\uC635\uC158\uBA85"] || row["\uC635\uC158"] || "");
   const expo = cleanup(row["\uB178\uCD9C\uBA85"] || "");
   const combined = [sale, option].join(" ").trim();
-  const size = resolveSize([combined, sale, option, expo]);
-  if (!size) return null;
+  const size = ensureSize(resolveSize([combined, sale, option, expo]));
   const fields = [combined, sale, option, expo];
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
@@ -379,8 +401,7 @@ function parseRowCafe24(row) {
   );
   const expo = cleanup(row["\uB178\uCD9C\uBA85"] || "");
   const combined = [sale, option].join(" ").trim();
-  const size = resolveSize([combined, sale, option, expo]);
-  if (!size) return null;
+  const size = ensureSize(resolveSize([combined, sale, option, expo]));
   const fields = [combined, sale, option, expo];
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
@@ -401,8 +422,7 @@ function parseRowSmartStore(row) {
   );
   const expo = cleanup(row["\uB178\uCD9C\uBA85"] || "");
   const combined = [sale, option].join(" ").trim();
-  const size = resolveSize([combined, sale, option, expo]);
-  if (!size) return null;
+  const size = ensureSize(resolveSize([combined, sale, option, expo]));
   const fields = [combined, sale, option, expo];
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
@@ -416,8 +436,7 @@ function parseRowGeneric(row) {
   const option = cleanup(row["\uC635\uC158\uBA85"] || row["\uC635\uC158"] || row["\uC635\uC158\uC815\uBCF4"] || "");
   const expo = cleanup(row["\uB178\uCD9C\uBA85"] || "");
   const combined = [sale, option, expo].join(" ").trim();
-  const size = resolveSize([combined, sale, option, expo]);
-  if (!size) return null;
+  const size = ensureSize(resolveSize([combined, sale, option, expo]));
   const fields = [combined, sale, option, expo];
   const color = resolveColor(fields);
   const design = resolveDesign(fields, color);
@@ -448,7 +467,7 @@ export function computeSummary(rows) {
     if (!parsed) continue;
 
     const sizeKey = parsed.size;
-    if (!SIZES.includes(sizeKey)) continue;
+    if (!ALLOWED_SIZE_SET.has(sizeKey)) continue;
 
     const key = [parsed.design, parsed.color || "", parsed.printCode || ""].join("||");
     if (!result.has(key)) {

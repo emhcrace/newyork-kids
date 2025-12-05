@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-
-const SIZES = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180];
+import { SIZES as DEFAULT_SIZES } from "../lib/summary";
 
 export default function SummaryTable({
   data,
@@ -10,6 +9,7 @@ export default function SummaryTable({
   onUpdateCell,
   fixedHeight = false,
   viewMode = "all",
+  sizes = DEFAULT_SIZES,
 }) {
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
@@ -17,6 +17,8 @@ export default function SummaryTable({
   const [inputValue, setInputValue] = useState("");
 
   const showPrintColumn = viewMode === "print";
+  const sizeList = sizes && sizes.length ? sizes : DEFAULT_SIZES;
+  const sizeSet = useMemo(() => new Set(sizeList), [sizeList]);
 
   const isSelected = (id) => selectedIds.includes(id);
 
@@ -54,10 +56,10 @@ export default function SummaryTable({
 
   const sizeTotals = useMemo(
     () =>
-      SIZES.map((size) =>
+      sizeList.map((size) =>
         data.reduce((acc, row) => acc + (Number(row[size]) || 0), 0)
       ),
-    [data]
+    [data, sizeList]
   );
 
   const grandTotal = useMemo(
@@ -73,7 +75,7 @@ export default function SummaryTable({
     let value = "";
     if (field === "name") value = row.baseName || "";
     else if (field === "color") value = row.color || "";
-    else if (SIZES.includes(field)) value = String(row[field] ?? "");
+    else if (sizeSet.has(field)) value = String(row[field] ?? "");
     else return;
 
     setEditing({ id: row.id, field });
@@ -153,7 +155,7 @@ export default function SummaryTable({
               {sortKey === "name" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
             </th>
             <th className="px-3 py-4 text-left">색상</th>
-            {SIZES.map((size) => (
+            {sizeList.map((size) => (
               <th key={size} className="px-3 py-4 text-center">
                 {size}
               </th>
@@ -209,7 +211,7 @@ export default function SummaryTable({
                     row.color || "-"
                   )}
                 </td>
-                {SIZES.map((size) => (
+                {sizeList.map((size) => (
                   <td
                     key={size}
                     className="px-3 py-3 text-center cursor-pointer"
@@ -245,7 +247,7 @@ export default function SummaryTable({
             <td className="px-3 py-3" colSpan={2}>
               합계
             </td>
-            {SIZES.map((size, index) => (
+            {sizeList.map((size, index) => (
               <td key={`total-${size}`} className="px-3 py-3 text-center">
                 {sizeTotals[index]}
               </td>
