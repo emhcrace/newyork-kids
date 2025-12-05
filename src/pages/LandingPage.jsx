@@ -126,6 +126,7 @@ export default function LandingPage() {
   const [showPrintLayout, setShowPrintLayout] = useState(false);
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState("all");
+
   const containerClass =
     "w-full max-w-6xl px-4 sm:px-6 lg:px-10 xl:px-14 mx-auto";
 
@@ -156,18 +157,14 @@ export default function LandingPage() {
       return;
     }
     const rowsToMerge = summary.filter((row) => selectedIds.includes(row.id));
-    const uniqueNames = Array.from(
-      new Set(rowsToMerge.map((row) => row.baseName))
-    );
+    const uniqueNames = Array.from(new Set(rowsToMerge.map((row) => row.baseName)));
     if (uniqueNames.length > 1) {
-      window.alert("상품명이 다른 항목은 병합할 수 없습니다.");
+      window.alert("상품명이 다르면 병합할 수 없습니다.");
       return;
     }
-    const uniqueCodes = Array.from(
-      new Set(rowsToMerge.map((row) => row.printCode || ""))
-    );
+    const uniqueCodes = Array.from(new Set(rowsToMerge.map((row) => row.printCode || "")));
     if (uniqueCodes.length > 1) {
-      window.alert("상품코드가 다른 항목은 병합할 수 없습니다.");
+      window.alert("상품코드가 다르면 병합할 수 없습니다.");
       return;
     }
     const mergedRow = mergeRows(rowsToMerge);
@@ -208,20 +205,20 @@ export default function LandingPage() {
     if (!query.trim()) return summary;
     const lowered = query.toLowerCase();
     return summary.filter((row) =>
-      [row.baseName, row.color, row.design]
-        .join(" ")
-        .toLowerCase()
-        .includes(lowered)
+      [row.baseName, row.color, row.design].join(" ").toLowerCase().includes(lowered)
     );
   }, [query, summary]);
 
   const filteredSummary = useMemo(() => {
-    if (viewMode === "print")
-      return queryFiltered.filter((row) => row.hasPrintCode);
-    if (viewMode === "general")
-      return queryFiltered.filter((row) => !row.hasPrintCode);
+    if (viewMode === "print") return queryFiltered.filter((row) => row.hasPrintCode);
+    if (viewMode === "general") return queryFiltered.filter((row) => !row.hasPrintCode);
     return queryFiltered;
   }, [queryFiltered, viewMode]);
+
+  const filteredTotal = useMemo(
+    () => filteredSummary.reduce((acc, row) => acc + (Number(row.total) || 0), 0),
+    [filteredSummary]
+  );
 
   const activeSizes = useMemo(() => {
     const rowsToCheck = filteredSummary.length ? filteredSummary : summary;
@@ -263,98 +260,111 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white py-8">
-      <header className={`${containerClass} text-center mb-10`}>
-        <img
-          src="https://emhcrace.github.io/newyork-kids/logo_on.png"
-          alt="뉴욕꼬맹이 로고"
-          className="mx-auto mb-4 h-16 md:h-20"
-        />
-        <p className="text-gray-600">Excel 양식으로 변환하는 도구입니다</p>
-      </header>
-
-      <div className={containerClass}>
-        <UploadForm onData={handleData} />
-      </div>
-
-      {summary.length === 0 && (
-        <div className={containerClass}>
-          <StepSection />
-        </div>
-      )}
-
-      {summary.length > 0 && !showPrintLayout && (
-        <div className={`${containerClass} mt-12 space-y-4`}>
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowPrintLayout(true)}
-                className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
-              >
-                인쇄 미리보기
-              </button>
-              <button
-                onClick={handleDownload}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-              >
-                엑셀 파일 다운로드
-              </button>
-              <button
-                onClick={handleMergeSelected}
-                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
-              >
-                선택한 항목 병합
-              </button>
-            </div>
-            <div className="relative flex-1 min-w-[220px]">
-              <input
-                type="text"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="상품명 검색"
-                className="w-full px-3 pr-8 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  aria-label="검색어 지우기"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  X
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setViewMode(tab.id)}
-                className={`px-4 py-2 rounded border ${
-                  viewMode === tab.id
-                    ? "bg-indigo-500 text-white border-indigo-500"
-                    : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <SummaryTable
-            data={filteredSummary}
-            selectedIds={selectedIds}
-            onToggleRow={handleToggleRow}
-            onToggleAll={handleToggleAll}
-            onUpdateCell={handleUpdateCell}
-            fixedHeight={query.length > 0}
-            viewMode={viewMode}
-            sizes={activeSizes}
+      <div className="print:hidden flex flex-col flex-1">
+        <header className={`${containerClass} text-center mb-10`}>
+          <img
+            src="https://emhcrace.github.io/newyork-kids/logo_on.png"
+            alt="뉴욕꼬맹이 로고"
+            className="mx-auto mb-4 h-16 md:h-20"
           />
+          <p className="text-gray-600">Excel 형식을 변환해보세요</p>
+        </header>
+
+        <div className={containerClass}>
+          <UploadForm onData={handleData} />
         </div>
-      )}
+
+        {summary.length === 0 && (
+          <div className={containerClass}>
+            <StepSection />
+          </div>
+        )}
+
+        {summary.length > 0 && !showPrintLayout && (
+          <div className={`${containerClass} mt-12 space-y-4`}>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowPrintLayout(true)}
+                  className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+                >
+                  인쇄 미리보기
+                </button>
+                <button
+                  onClick={handleDownload}
+                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                >
+                  엑셀 파일 다운로드
+                </button>
+                <button
+                  onClick={handleMergeSelected}
+                  className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
+                >
+                  선택한 항목 병합
+                </button>
+              </div>
+              <div className="relative flex-1 min-w-[220px]">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="상품명 검색"
+                  className="w-full px-3 pr-8 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    aria-label="검색어 지우기"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    X
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end text-sm text-gray-500">
+              <span>
+                표시 행: {filteredSummary.length.toLocaleString()}개 · 총 수량:{" "}
+                {filteredTotal.toLocaleString()}개
+              </span>
+            </div>
+
+            <div className="flex gap-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setViewMode(tab.id)}
+                  className={`px-4 py-2 rounded border ${
+                    viewMode === tab.id
+                      ? "bg-indigo-500 text-white border-indigo-500"
+                      : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <SummaryTable
+              data={filteredSummary}
+              selectedIds={selectedIds}
+              onToggleRow={handleToggleRow}
+              onToggleAll={handleToggleAll}
+              onUpdateCell={handleUpdateCell}
+              fixedHeight={query.length > 0}
+              viewMode={viewMode}
+              sizes={activeSizes}
+            />
+          </div>
+        )}
+
+        <footer className={`${containerClass} mt-auto py-8 text-sm text-gray-400`}>
+          ⓒ 2025 뉴욕꼬맹이
+        </footer>
+      </div>
 
       {showPrintLayout && (
         <PrintLayout
@@ -364,10 +374,6 @@ export default function LandingPage() {
           onClose={() => setShowPrintLayout(false)}
         />
       )}
-
-      <footer className={`${containerClass} mt-auto py-8 text-sm text-gray-400`}>
-        ⓒ 2025 뉴욕꼬맹이
-      </footer>
     </div>
   );
 }
