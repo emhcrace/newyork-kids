@@ -126,6 +126,7 @@ export default function LandingPage() {
   const [showPrintLayout, setShowPrintLayout] = useState(false);
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState("all");
+  const [listFullscreen, setListFullscreen] = useState(false);
 
   const containerClass =
     "w-full max-w-6xl px-4 sm:px-6 lg:px-10 xl:px-14 mx-auto";
@@ -331,21 +332,31 @@ export default function LandingPage() {
               </span>
             </div>
 
-            <div className="flex gap-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setViewMode(tab.id)}
-                  className={`px-4 py-2 rounded border ${
-                    viewMode === tab.id
-                      ? "bg-indigo-500 text-white border-indigo-500"
-                      : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex gap-2">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setViewMode(tab.id)}
+                    className={`px-4 py-2 rounded border ${
+                      viewMode === tab.id
+                        ? "bg-indigo-500 text-white border-indigo-500"
+                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setListFullscreen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded border bg-white text-gray-700 hover:bg-gray-100"
+              >
+                <span aria-hidden="true">⛶</span>
+                <span>전체화면</span>
+              </button>
             </div>
 
             <SummaryTable
@@ -373,6 +384,39 @@ export default function LandingPage() {
           sizes={activeSizes}
           onClose={() => setShowPrintLayout(false)}
         />
+      )}
+
+      {listFullscreen && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col px-4 py-6 overflow-hidden">
+          <div className="flex items-center justify-between mb-4 flex-shrink-0">
+            <div>
+              <h2 className="text-xl font-bold">엑셀 목록 전체화면</h2>
+              <p className="text-sm text-gray-500">
+                수정한 내용은 그대로 유지되며, 닫기 후에도 반영됩니다.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setListFullscreen(false)}
+              className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+            >
+              닫기
+            </button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <SummaryTable
+              data={filteredSummary}
+              selectedIds={selectedIds}
+              onToggleRow={handleToggleRow}
+              onToggleAll={handleToggleAll}
+              onUpdateCell={handleUpdateCell}
+              fixedHeight={false}
+              fullHeight
+              viewMode={viewMode}
+              sizes={activeSizes}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

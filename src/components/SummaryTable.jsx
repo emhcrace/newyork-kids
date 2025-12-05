@@ -10,6 +10,7 @@ export default function SummaryTable({
   fixedHeight = false,
   viewMode = "all",
   sizes = DEFAULT_SIZES,
+  fullHeight = false,
 }) {
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
@@ -128,7 +129,9 @@ export default function SummaryTable({
   return (
     <div
       className={`bg-white shadow-md rounded-lg overflow-x-auto overflow-y-auto ${
-        fixedHeight
+        fullHeight
+          ? "h-[calc(100vh-180px)]"
+          : fixedHeight
           ? "h-[35vh] md:h-[37.5vh] lg:h-[40vh]"
           : "max-h-[35vh] md:max-h-[37.5vh] lg:max-h-[40vh]"
       }`}
