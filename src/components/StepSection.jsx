@@ -6,14 +6,14 @@ export default function StepSection() {
   ];
 
   return (
-    <section className="mt-12 w-11/12 max-w-5xl">
+    <section className="mt-12 w-full flex flex-col items-center">
       <h2 className="text-2xl font-bold text-center mb-8">
         엑셀 문서를 집계표로 변환하는 방법
       </h2>
-      <div className="flex flex-col md:flex-row justify-between items-center space-y-6 md:space-y-0">
+      <div className="w-full max-w-5xl flex flex-col md:flex-row justify-center items-center space-y-6 md:space-y-0 md:space-x-8">
         {steps.map((step, idx) => (
           <div key={idx} className="flex-1 flex flex-col items-center px-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center mb-4">
+            <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center mb-4 text-xl font-bold">
               {idx + 1}
             </div>
             <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
