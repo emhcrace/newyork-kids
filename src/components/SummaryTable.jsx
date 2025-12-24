@@ -220,28 +220,33 @@ export default function SummaryTable({
                 <td className="px-3 py-3 text-center">
                   {row.ageGroup || "-"}
                 </td>
-                {sizeList.map((size) => (
-                  <td
-                    key={size}
-                    className="px-3 py-3 text-center cursor-pointer"
-                    onDoubleClick={() => startEditing(row, size)}
-                  >
-                    {isEditingRow && editingField === size ? (
-                      <input
-                        autoFocus
-                        type="number"
-                        min="0"
-                        value={inputValue}
-                        onChange={(event) => setInputValue(event.target.value)}
-                        onBlur={commitEdit}
-                        onKeyDown={handleKeyDown}
-                        className="w-20 px-2 py-1 rounded border text-black text-right"
-                      />
-                    ) : (
-                      row[size]
-                    )}
-                  </td>
-                ))}
+                {sizeList.map((size) => {
+                  const hasValue = Number(row[size]) > 0;
+                  return (
+                    <td
+                      key={size}
+                      className={`px-3 py-3 text-center cursor-pointer ${
+                        hasValue ? "bg-gray-200" : ""
+                      }`}
+                      onDoubleClick={() => startEditing(row, size)}
+                    >
+                      {isEditingRow && editingField === size ? (
+                        <input
+                          autoFocus
+                          type="number"
+                          min="0"
+                          value={inputValue}
+                          onChange={(event) => setInputValue(event.target.value)}
+                          onBlur={commitEdit}
+                          onKeyDown={handleKeyDown}
+                          className="w-20 px-2 py-1 rounded border text-black text-right"
+                        />
+                      ) : (
+                        row[size]
+                      )}
+                    </td>
+                  );
+                })}
                 <td className="px-3 py-3 text-center font-semibold">
                   {row.total}
                 </td>

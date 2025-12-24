@@ -143,6 +143,9 @@ export default function LandingPage() {
   const containerClass =
     "w-full max-w-6xl px-4 sm:px-6 lg:px-10 xl:px-14 mx-auto";
 
+  const resultContainerClass =
+    "w-full px-4 sm:px-6 md:w-[90%] md:px-10 xl:px-14 mx-auto";
+
   const handleData = (rows) => {
     const prepared = rows.map(withHelpers);
     setSummary(aggregateRowsByName(prepared));
@@ -274,27 +277,27 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-white py-8">
       <div className="print:hidden flex flex-col flex-1">
-        <header className={`${containerClass} text-center mb-10`}>
+        <header className={`${resultContainerClass} text-center mb-10`}>
           <img
             src="https://emhcrace.github.io/newyork-kids/logo_on.png"
             alt="뉴욕꼬맹이 로고"
-            className="mx-auto mb-4 h-16 md:h-20"
+            className="mx-auto mb-4 h-24 md:h-32"
           />
           <p className="text-gray-600">Excel 형식을 변환해보세요</p>
         </header>
 
-        <div className={containerClass}>
+        <div className={resultContainerClass}>
           <UploadForm onData={handleData} />
         </div>
 
         {summary.length === 0 && (
-          <div className={containerClass}>
+          <div className={resultContainerClass}>
             <StepSection />
           </div>
         )}
 
         {summary.length > 0 && !showPrintLayout && (
-          <div className={`${containerClass} mt-12 space-y-4`}>
+          <div className={`${resultContainerClass} mt-12 space-y-4`}>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex gap-2">
                 <button

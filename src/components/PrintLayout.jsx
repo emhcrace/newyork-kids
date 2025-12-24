@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef } from "react";
-import { SIZES as DEFAULT_SIZES } from "../lib/summary";
+import { NUMERIC_SIZES, ADULT_SIZES } from "../lib/summary";
 
 const formatTimestamp = () => {
   const now = new Date();
@@ -17,11 +17,9 @@ export default function PrintLayout({
   data,
   onClose,
   viewMode = "all",
-  sizes = DEFAULT_SIZES,
 }) {
   const hasPrinted = useRef(false);
   const showPrintColumn = viewMode === "print";
-  const sizeList = sizes && sizes.length ? sizes : DEFAULT_SIZES;
 
   useEffect(() => {
     if (!hasPrinted.current) {
@@ -30,16 +28,29 @@ export default function PrintLayout({
     }
   }, []);
 
-  const sortedData = useMemo(() => {
-    const rows = [...data];
-    rows.sort((a, b) =>
+  const { childrenData, adultData } = useMemo(() => {
+    const children = [];
+    const adults = [];
+
+    data.forEach((row) => {
+      if (row.ageGroup === "어린이") {
+        children.push(row);
+      } else if (row.ageGroup === "성인") {
+        adults.push(row);
+      }
+    });
+
+    const sortFn = (a, b) =>
       (a.baseName || a.displayName || "").localeCompare(
         b.baseName || b.displayName || "",
         "ko",
         { sensitivity: "base" }
-      )
-    );
-    return rows;
+      );
+
+    children.sort(sortFn);
+    adults.sort(sortFn);
+
+    return { childrenData: children, adultData: adults };
   }, [data]);
 
   const totals = useMemo(() => {
@@ -91,6 +102,73 @@ export default function PrintLayout({
 
   const timestamp = useMemo(() => formatTimestamp(), []);
 
+  const renderTable = (title, tableData, sizeColumns) => {
+    if (tableData.length === 0) return null;
+
+    return (
+      <div className="mb-8">
+        <h2 className="text-xl font-bold mb-3">{title}</h2>
+        <table className="min-w-full border border-gray-300">
+          <thead>
+            <tr className="bg-gray-100">
+              {showPrintColumn && <th className="border px-2 py-1">나염번호</th>}
+              <th className="border px-2 py-1">상품명</th>
+              <th className="border px-2 py-1">색상</th>
+              {sizeColumns.map((size) => (
+                <th key={size} className="border px-2 py-1 text-center">
+                  {size}
+                </th>
+              ))}
+              <th className="border px-2 py-1 text-center">합계</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tableData.map((row) => {
+              const name = showPrintColumn
+                ? row.baseName || row.displayName || "상품명 없음"
+                : row.displayName || row.baseName || "상품명 없음";
+              return (
+                <tr key={row.id || row.displayName}>
+                  {showPrintColumn && (
+                    <td className="border px-2 py-1 text-center">
+                      <Cell
+                        label="나염번호"
+                        value={row.printCode || "-"}
+                        align="center"
+                      />
+                    </td>
+                  )}
+                  <td className="border px-2 py-1">
+                    <Cell label="상품명" value={name} />
+                  </td>
+                  <td className="border px-2 py-1">
+                    <Cell label="색상" value={row.color || "-"} />
+                  </td>
+                  {sizeColumns.map((size) => {
+                    const hasValue = Number(row[size]) > 0;
+                    return (
+                      <td
+                        key={size}
+                        className={`border px-2 py-1 text-center ${
+                          hasValue ? "bg-gray-200" : ""
+                        }`}
+                      >
+                        <Cell label={size} value={row[size]} align="center" />
+                      </td>
+                    );
+                  })}
+                  <td className="border px-2 py-1 text-center font-semibold">
+                    <Cell label="합계" value={row.total} align="center" />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div className="fixed inset-0 bg-white p-8 overflow-auto z-50 print:relative print:inset-auto print:p-4 print:overflow-visible print:h-auto">
       <style>{`
@@ -109,59 +187,12 @@ export default function PrintLayout({
         닫기
       </button>
 
-      <h1 className="text-2xl font-bold mb-4">
+      <h1 className="text-2xl font-bold mb-6">
         {timestamp} {totalLabel} {totalValue.toLocaleString()}개{totalDetail}
       </h1>
 
-      <table className="min-w-full border border-gray-300">
-        <thead>
-          <tr className="bg-gray-100">
-            {showPrintColumn && <th className="border px-2 py-1">나염번호</th>}
-            <th className="border px-2 py-1">상품명</th>
-            <th className="border px-2 py-1">색상</th>
-            <th className="border px-2 py-1">연령대</th>
-            {sizeList.map((size) => (
-              <th key={size} className="border px-2 py-1 text-center">
-                {size}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {sortedData.map((row, index) => {
-            const name = showPrintColumn
-              ? row.baseName || row.displayName || "상품명 없음"
-              : row.displayName || row.baseName || "상품명 없음";
-            return (
-              <tr key={row.id || row.displayName}>
-                {showPrintColumn && (
-                  <td className="border px-2 py-1 text-center">
-                    <Cell
-                      label="나염번호"
-                      value={row.printCode || "-"}
-                      align="center"
-                    />
-                  </td>
-                )}
-                <td className="border px-2 py-1">
-                  <Cell label="상품명" value={name} />
-                </td>
-                <td className="border px-2 py-1">
-                  <Cell label="색상" value={row.color || "-"} />
-                </td>
-                <td className="border px-2 py-1 text-center">
-                  <Cell label="연령대" value={row.ageGroup || "-"} align="center" />
-                </td>
-                {sizeList.map((size) => (
-                  <td key={size} className="border px-2 py-1 text-center">
-                    <Cell label={size} value={row[size]} align="center" />
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {renderTable("어린이", childrenData, NUMERIC_SIZES)}
+      {renderTable("성인", adultData, ADULT_SIZES)}
     </div>
   );
 }
