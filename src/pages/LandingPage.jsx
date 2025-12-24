@@ -4,7 +4,7 @@ import UploadForm from "../components/UploadForm";
 import SummaryTable from "../components/SummaryTable";
 import StepSection from "../components/StepSection";
 import PrintLayout from "../components/PrintLayout";
-import { SIZES, NUMERIC_SIZES, ADULT_SIZES } from "../lib/summary";
+import { SIZES, NUMERIC_SIZES, ADULT_SIZES, getAgeGroup } from "../lib/summary";
 
 const generateId = (() => {
   let counter = 0;
@@ -61,6 +61,17 @@ const recalcRow = (row) => {
   const displayName = rawPrintCode ? `${baseName} (${rawPrintCode})` : baseName;
   const hasPrintCode = Boolean(rawPrintCode);
 
+  // Calculate age group from first non-zero size
+  let ageGroup = row.ageGroup || "";
+  if (!ageGroup) {
+    for (const size of SIZES) {
+      if (Number(row[size]) > 0) {
+        ageGroup = getAgeGroup(size);
+        break;
+      }
+    }
+  }
+
   return {
     ...row,
     baseName,
@@ -70,6 +81,7 @@ const recalcRow = (row) => {
     printCode: rawPrintCode,
     total,
     design: displayName,
+    ageGroup,
   };
 };
 

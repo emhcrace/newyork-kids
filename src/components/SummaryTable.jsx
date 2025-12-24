@@ -159,6 +159,7 @@ export default function SummaryTable({
               {sortKey === "name" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
             </th>
             <th className="px-3 py-4 text-left">색상</th>
+            <th className="px-3 py-4 text-center">연령대</th>
             {sizeList.map((size) => (
               <th key={size} className="px-3 py-4 text-center">
                 {size}
@@ -216,6 +217,9 @@ export default function SummaryTable({
                     row.color || "-"
                   )}
                 </td>
+                <td className="px-3 py-3 text-center">
+                  {row.ageGroup || "-"}
+                </td>
                 {sizeList.map((size) => (
                   <td
                     key={size}
@@ -250,7 +254,7 @@ export default function SummaryTable({
             <td className="px-3 py-3 text-center">-</td>
             <td className="px-3 py-3 text-center">-</td>
             {showPrintColumn && <td className="px-3 py-3 text-center">-</td>}
-            <td className="px-3 py-3" colSpan={2}>
+            <td className="px-3 py-3" colSpan={3}>
               합계
             </td>
             {sizeList.map((size, index) => (

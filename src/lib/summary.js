@@ -38,6 +38,14 @@ const NUMERIC_SIZE_SET = new Set(NUMERIC_SIZES);
 const ADULT_SIZE_SET = new Set(ADULT_SIZES);
 const ALLOWED_SIZE_SET = new Set(SIZES);
 
+export function getAgeGroup(size) {
+  if (!size) return "";
+  const sizeStr = String(size).toUpperCase();
+  if (NUMERIC_SIZE_SET.has(Number(size))) return "어린이";
+  if (ADULT_SIZE_SET.has(sizeStr)) return "성인";
+  return "";
+}
+
 const COLOR_WORDS = dedupe(RULES?.colors, FALLBACK_RULES.colors);
 const KEYWORDS = dedupe(RULES?.keywords, FALLBACK_RULES.keywords).sort((a, b) => b.length - a.length);
 const STOPWORDS = new Set(dedupe(RULES?.stopwords, FALLBACK_RULES.stopwords));
@@ -165,6 +173,10 @@ function extractDesignFromSale(text) {
   if (!source) return "";
   source = source.replace(/\uC0C1\uD488\uBA85\s*[:=]\s*/gi, "");
   source = source.replace(/\uC0C9\uC0C1\s*[:=].*?(?:,|\/|\s\uC0AC\uC774\uC988|$)/gi, "");
+
+  // Remove leading numbers with dot or underscore (e.g., "01.", "02_", "123.")
+  source = source.replace(/^\d+[._-]\s*/, "");
+
   const size = extractSize(source);
   if (size) {
     source = source.replace(new RegExp('(:|\\\\b)' + size + '(?:\\\\b|$)'), "");
@@ -184,7 +196,6 @@ function extractDesignFromSale(text) {
   if (source.includes(",")) {
     source = source.split(",")[0];
   }
-  source = source.replace(/^(\d+\.|\d+[_-])/, "");
   return cleanup(source);
 }
 
@@ -293,27 +304,37 @@ function extractColor(text) {
   const source = cleanup(text);
   if (!source) return "";
 
+  // Priority 1: "색상:" or "색상=" label
   const label = source.match(/\uC0C9\uC0C1\s*[:=]\s*([^,/\s)]+)/);
   if (label) return normalizeColor(label[1]);
 
-  const colon = source.match(/([\uAC00-\uD7A3A-Za-z]+)\s*:\s*(?:\(\uC131\uC778\)|\(\uC544\uB3D9\))?\s*(S|M|L|XL|2XL|\d{2,3})\b/);
-  if (colon) {
-    const candidate = normalizeColor(colon[1]);
-    if (candidate && !ADULT_TOKENS.has(candidate.toUpperCase())) return candidate;
+  // Priority 2: Parentheses pattern like "(레드)", "(핑크)"
+  const parenMatch = source.match(/\(([^)]+)\)/);
+  if (parenMatch) {
+    const candidate = normalizeColor(parenMatch[1]);
+    if (candidate && !ADULT_TOKENS.has(candidate.toUpperCase())) {
+      // Check if it's a known color or matches color pattern
+      if (COLOR_SET.has(candidate) || /^[\uAC00-\uD7A3]+$/.test(candidate)) {
+        return candidate;
+      }
+    }
   }
 
-  const slash = source.match(/\/\s*([\uAC00-\uD7A3A-Za-z]+)\s*(?:\(.*?\))?/);
-  if (slash) {
-    const candidate = normalizeColor(slash[1]);
+  // Priority 3: Slash pattern like "/다크블루", "/차콜"
+  const slashMatch = source.match(/\/\s*([\uAC00-\uD7A3A-Za-z가-힣]+)/);
+  if (slashMatch) {
+    const candidate = normalizeColor(slashMatch[1]);
     if (candidate) return candidate;
   }
 
-  const paren = source.match(/\(([^)]+)\)/);
-  if (paren) {
-    const candidate = normalizeColor(paren[1]);
+  // Priority 4: Colon pattern like "화이트:100", "블랙:S"
+  const colonMatch = source.match(/([\uAC00-\uD7A3A-Za-z]+)\s*:\s*(?:\(\uC131\uC778\)|\(\uC544\uB3D9\))?\s*(S|M|L|XL|2XL|\d{2,3})\b/);
+  if (colonMatch) {
+    const candidate = normalizeColor(colonMatch[1]);
     if (candidate && !ADULT_TOKENS.has(candidate.toUpperCase())) return candidate;
   }
 
+  // Priority 5: Known color words in the text
   return normalizeColor(findColorWord(source));
 }
 
@@ -489,12 +510,18 @@ export function computeSummary(rows) {
       printCode: entry.printCode,
     };
     let total = 0;
+    let ageGroup = "";
     for (const size of SIZES) {
       const value = entry.counts[size] || 0;
       row[size] = value;
       total += value;
+      // Determine age group from the first non-zero size
+      if (value > 0 && !ageGroup) {
+        ageGroup = getAgeGroup(size);
+      }
     }
     row.total = total;
+    row.ageGroup = ageGroup;
     return row;
   });
 }

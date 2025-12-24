@@ -119,6 +119,7 @@ export default function PrintLayout({
             {showPrintColumn && <th className="border px-2 py-1">나염번호</th>}
             <th className="border px-2 py-1">상품명</th>
             <th className="border px-2 py-1">색상</th>
+            <th className="border px-2 py-1">연령대</th>
             {sizeList.map((size) => (
               <th key={size} className="border px-2 py-1 text-center">
                 {size}
@@ -147,6 +148,9 @@ export default function PrintLayout({
                 </td>
                 <td className="border px-2 py-1">
                   <Cell label="색상" value={row.color || "-"} />
+                </td>
+                <td className="border px-2 py-1 text-center">
+                  <Cell label="연령대" value={row.ageGroup || "-"} align="center" />
                 </td>
                 {sizeList.map((size) => (
                   <td key={size} className="border px-2 py-1 text-center">
