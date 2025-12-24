@@ -242,7 +242,7 @@ function extractSize(text) {
   const source = cleanup(text);
   if (!source) return null;
 
-  const label = source.match(/\uC0AC\uC774\uC988\s*[:=]\s*(\d{2,3}|S|M|L|XL|2XL)\b/i);
+  const label = source.match(/\uC0AC\uC774\uC988\s*[:=]\s*(\d{2,3}|[234]?XL|S|M|L)\b/i);
   if (label) {
     const token = label[1].toUpperCase();
     if (/^\d{2,3}$/.test(token)) {
@@ -252,7 +252,7 @@ function extractSize(text) {
     return ADULT_SIZE_SET.has(token) ? token : null;
   }
 
-  const taggedAdult = source.match(/:\s*(?:\(\uC131\uC778\)|\(\uC544\uB3D9\))?\s*(S|M|L|XL|2XL)\b/i);
+  const taggedAdult = source.match(/:\s*(?:\(\uC131\uC778\)|\(\uC544\uB3D9\))?\s*([234]?XL|S|M|L)\b/i);
   if (taggedAdult) {
     const token = taggedAdult[1].toUpperCase();
     if (ADULT_SIZE_SET.has(token)) return token;
@@ -276,7 +276,7 @@ function extractSize(text) {
     if (NUMERIC_SIZE_SET.has(size)) return size;
   }
 
-  const adultTokens = [...source.matchAll(/(S|M|L|XL|2XL)\b/gi)];
+  const adultTokens = [...source.matchAll(/([234]?XL|S|M|L)\b/gi)];
   if (adultTokens.length) {
     const token = adultTokens[adultTokens.length - 1][1].toUpperCase();
     if (ADULT_SIZE_SET.has(token)) return token;
@@ -328,7 +328,7 @@ function extractColor(text) {
   }
 
   // Priority 4: Colon pattern like "화이트:100", "블랙:S"
-  const colonMatch = source.match(/([\uAC00-\uD7A3A-Za-z]+)\s*:\s*(?:\(\uC131\uC778\)|\(\uC544\uB3D9\))?\s*(S|M|L|XL|2XL|\d{2,3})\b/);
+  const colonMatch = source.match(/([\uAC00-\uD7A3A-Za-z]+)\s*:\s*(?:\(\uC131\uC778\)|\(\uC544\uB3D9\))?\s*([234]?XL|S|M|L|\d{2,3})\b/);
   if (colonMatch) {
     const candidate = normalizeColor(colonMatch[1]);
     if (candidate && !ADULT_TOKENS.has(candidate.toUpperCase())) return candidate;
