@@ -93,6 +93,14 @@ export default function PrintLayout({
 
   return (
     <div className="fixed inset-0 bg-white p-8 overflow-auto z-50 print:relative print:inset-auto print:p-4 print:overflow-visible print:h-auto">
+      <style>{`
+        @media print {
+          table { page-break-inside: auto; }
+          thead { display: table-header-group; }
+          tr { page-break-inside: avoid; page-break-after: auto; }
+          td { page-break-inside: avoid; page-break-after: auto; }
+        }
+      `}</style>
       <button
         onClick={onClose}
         className="print:hidden absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded"
